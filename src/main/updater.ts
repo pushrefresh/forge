@@ -9,7 +9,7 @@ const log = createLogger('updater');
 /** Fallback timeout — if the renderer doesn't ack the update toast within this
  *  window, we assume the UI is broken and fall back to the native dialog so the
  *  user doesn't miss an update just because the React tree is stuck. */
-const RENDERER_ACK_TIMEOUT_MS = 10_000;
+const RENDERER_ACK_TIMEOUT_MS = 60_000;
 
 /**
  * Wire the electron-updater lifecycle for a production Mac build. No-op
@@ -69,21 +69,47 @@ export function initUpdater(win: BrowserWindow): void {
       acked = true;
     };
 
-    try {
-      win.webContents.send(IPC.EvtUpdateReady, {
-        version: info.version,
-        releaseNotes:
-          typeof info.releaseNotes === 'string' ? info.releaseNotes : null,
-        sizeBytes: info.files?.[0]?.size ?? null,
-      });
-    } catch (err) {
-      log.warn('failed to post update event', { err: String(err) });
-      pendingAck = null;
-      showNativeFallback(win, info.version);
-      return;
+    const payload = {
+      version: info.version,
+      releaseNotes:
+        typeof info.releaseNotes === 'string' ? info.releaseNotes : null,
+      sizeBytes: info.files?.[0]?.size ?? null,
+    };
+
+    const send = () => {
+      try {
+        win.webContents.send(IPC.EvtUpdateReady, payload);
+      } catch (err) {
+        log.warn('failed to post update event', { err: String(err) });
+        pendingAck = null;
+        showNativeFallback(win, info.version);
+        return;
+      }
+    };
+
+    // If the renderer is still loading when the download finishes (common on
+    // cold start), `webContents.send` can deliver before the subscriber is
+    // wired up. Wait for did-finish-load first so the renderer has a chance
+    // to ack, then resend periodically until ack arrives or timeout expires.
+    if (win.webContents.isLoading()) {
+      win.webContents.once('did-finish-load', send);
+    } else {
+      send();
     }
 
+    // Resend every 3s until ack (or timeout). Handshake is idempotent — the
+    // renderer just sets the same state + re-acks. Covers the "renderer
+    // mounted but lost the initial push" edge case without a new protocol.
+    const resendInterval = setInterval(() => {
+      if (acked || win.isDestroyed()) {
+        clearInterval(resendInterval);
+        return;
+      }
+      send();
+    }, 3_000);
+
     setTimeout(() => {
+      clearInterval(resendInterval);
       pendingAck = null;
       if (!acked) {
         log.warn('update toast not acknowledged; falling back to native dialog');

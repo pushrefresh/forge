@@ -10,7 +10,9 @@ import { ForgeMark } from '../ui/ForgeMark';
 import { Badge } from '../ui/Badge';
 import { Segment } from '../ui/Segment';
 import type { AIProvider, Credential } from '@shared/types';
-import { DEFAULT_MODEL_FOR } from '@shared/types';
+import { DEFAULT_MODEL_FOR, MODEL_OPTIONS_FOR } from '@shared/types';
+
+const CUSTOM_MODEL_SENTINEL = '__custom__';
 
 const PROVIDER_OPTIONS: ReadonlyArray<{ value: AIProvider; label: string }> = [
   { value: 'mock', label: 'mock' },
@@ -142,17 +144,11 @@ export function Settings() {
         </div>
 
         <Field label="model">
-          <Input
-            mono
+          <ModelPicker
+            provider={provider}
             value={model}
-            onChange={(e) => setModel(e.target.value)}
-            placeholder={DEFAULT_MODEL_FOR[provider]}
+            onChange={setModel}
           />
-          <p className="mt-1.5 text-[11px] text-fg-mute leading-relaxed">
-            model id. defaults to{' '}
-            <span className="font-mono text-fg-dim">{DEFAULT_MODEL_FOR[provider]}</span>{' '}
-            when empty.
-          </p>
         </Field>
 
         <div className="pt-2 border-t border-line">
@@ -233,6 +229,87 @@ export function Settings() {
         </Button>
       </div>
     </Dialog>
+  );
+}
+
+/**
+ * Dropdown of curated models for the active provider with a "custom…"
+ * escape hatch for anything we haven't listed. Typing a slug the list
+ * doesn't contain auto-flips to custom so the value survives a save.
+ */
+function ModelPicker({
+  provider,
+  value,
+  onChange,
+}: {
+  provider: AIProvider;
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  const options = MODEL_OPTIONS_FOR[provider];
+  const trimmed = value.trim();
+  const isKnown = options.some((o) => o.id === trimmed);
+  const [custom, setCustom] = useState(!isKnown && trimmed.length > 0);
+
+  useEffect(() => {
+    // When provider changes, reset custom flag based on whether the new
+    // value exists in the new provider's list.
+    setCustom(!options.some((o) => o.id === trimmed) && trimmed.length > 0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [provider]);
+
+  const selectValue = custom || !isKnown ? CUSTOM_MODEL_SENTINEL : trimmed;
+
+  function onSelectChange(next: string) {
+    if (next === CUSTOM_MODEL_SENTINEL) {
+      setCustom(true);
+      onChange('');
+    } else {
+      setCustom(false);
+      onChange(next);
+    }
+  }
+
+  return (
+    <>
+      <select
+        value={selectValue}
+        onChange={(e) => onSelectChange(e.target.value)}
+        className="w-full h-9 rounded-md bg-surface-2 border border-line-strong px-3 text-[13px] text-fg font-mono focus:outline-none focus:border-accent focus:shadow-focus transition-[border-color,box-shadow] duration-160 ease-precise"
+      >
+        {options.map((o) => (
+          <option key={o.id} value={o.id}>
+            {o.label}
+          </option>
+        ))}
+        <option value={CUSTOM_MODEL_SENTINEL}>custom…</option>
+      </select>
+      {custom && (
+        <Input
+          mono
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={DEFAULT_MODEL_FOR[provider]}
+          className="mt-2"
+        />
+      )}
+      <p className="mt-1.5 text-[11px] text-fg-mute leading-relaxed">
+        {custom ? (
+          <>
+            type any model id supported by the provider. check their docs
+            if you're unsure.
+          </>
+        ) : (
+          <>
+            defaults to{' '}
+            <span className="font-mono text-fg-dim">
+              {DEFAULT_MODEL_FOR[provider]}
+            </span>{' '}
+            when empty.
+          </>
+        )}
+      </p>
+    </>
   );
 }
 

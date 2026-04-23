@@ -37,6 +37,43 @@ export const DEFAULT_MODEL_FOR: Record<AIProvider, string> = {
   openrouter: 'anthropic/claude-sonnet-4-6',
 };
 
+/**
+ * Curated list of model IDs shown in Settings. Not exhaustive — users can
+ * still type a custom slug if a provider released something we haven't
+ * added yet. The label is what shows in the dropdown; the id is the
+ * string passed to the provider's API.
+ */
+export interface ModelOption {
+  id: string;
+  label: string;
+}
+
+export const MODEL_OPTIONS_FOR: Record<AIProvider, ReadonlyArray<ModelOption>> = {
+  mock: [{ id: 'mock-operator-1', label: 'mock operator' }],
+  anthropic: [
+    { id: 'claude-opus-4-7', label: 'Claude Opus 4.7 — most capable' },
+    { id: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6 — balanced' },
+    { id: 'claude-haiku-4-5', label: 'Claude Haiku 4.5 — fast' },
+  ],
+  openai: [
+    { id: 'gpt-5', label: 'GPT-5' },
+    { id: 'gpt-5-mini', label: 'GPT-5 Mini — fast' },
+    { id: 'o3', label: 'o3 — reasoning' },
+  ],
+  openrouter: [
+    { id: 'anthropic/claude-opus-4-7', label: 'Claude Opus 4.7' },
+    { id: 'anthropic/claude-sonnet-4-6', label: 'Claude Sonnet 4.6' },
+    { id: 'anthropic/claude-haiku-4-5', label: 'Claude Haiku 4.5' },
+    { id: 'openai/gpt-5', label: 'GPT-5' },
+    { id: 'openai/gpt-5-mini', label: 'GPT-5 Mini' },
+    { id: 'openai/o3', label: 'o3' },
+    { id: 'google/gemini-2.5-pro', label: 'Gemini 2.5 Pro' },
+    { id: 'google/gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
+    { id: 'x-ai/grok-4', label: 'Grok 4' },
+    { id: 'meta-llama/llama-4-scout', label: 'Llama 4 Scout' },
+  ],
+};
+
 export interface Workspace {
   id: string;
   name: string;

@@ -56,6 +56,15 @@ export interface UIState {
     releaseNotes: string | null;
     sizeBytes: number | null;
   } | null;
+  /** When truthy, the Save-login modal is shown pre-filled with this data. */
+  passwordSavePrompt: {
+    url: string;
+    host: string;
+    username: string;
+    password: string;
+  } | null;
+  /** When truthy, the Fill-login picker overlay is shown for the active tab. */
+  passwordFillPickerOpen: boolean;
   toast: { kind: 'info' | 'success' | 'warning' | 'error'; message: string } | null;
 }
 
@@ -104,6 +113,10 @@ export interface ForgeStore {
   setUpdateReady(
     info: { version: string; releaseNotes: string | null; sizeBytes: number | null } | null,
   ): void;
+  setPasswordSavePrompt(
+    prompt: { url: string; host: string; username: string; password: string } | null,
+  ): void;
+  setPasswordFillPickerOpen(open: boolean): void;
   toast(kind: 'info' | 'success' | 'warning' | 'error', message: string): void;
   clearToast(): void;
 }
@@ -134,6 +147,8 @@ export const useForgeStore = create<ForgeStore>((set, get) => ({
     pickerArmed: false,
     pendingComposerDraft: null,
     updateReady: null,
+    passwordSavePrompt: null,
+    passwordFillPickerOpen: false,
     toast: null,
   },
 
@@ -234,6 +249,10 @@ export const useForgeStore = create<ForgeStore>((set, get) => ({
     })),
   setUpdateReady: (info) =>
     set((s) => ({ ui: { ...s.ui, updateReady: info } })),
+  setPasswordSavePrompt: (prompt) =>
+    set((s) => ({ ui: { ...s.ui, passwordSavePrompt: prompt } })),
+  setPasswordFillPickerOpen: (open) =>
+    set((s) => ({ ui: { ...s.ui, passwordFillPickerOpen: open } })),
   toast: (kind, message) => set((s) => ({ ui: { ...s.ui, toast: { kind, message } } })),
   clearToast: () => set((s) => ({ ui: { ...s.ui, toast: null } })),
 }));

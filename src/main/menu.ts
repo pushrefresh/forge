@@ -189,14 +189,7 @@ export function installApplicationMenu(win: BrowserWindow): void {
 
     // --- Window -------------------------------------------------------------
     {
-      label: 'Window',
-      submenu: [
-        { role: 'minimize' },
-        { role: 'zoom' },
-        { type: 'separator' },
-        { role: 'front' },
-        { role: 'window' },
-      ],
+      role: 'windowMenu',
     },
 
     // --- Help ---------------------------------------------------------------

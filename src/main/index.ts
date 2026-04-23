@@ -12,6 +12,7 @@ initTelemetry();
 import { TabManager } from './browser/TabManager';
 import { SiteCrawler } from './browser/SiteCrawler';
 import { Picker } from './browser/picker';
+import { PasswordManager } from './passwords/PasswordManager';
 import { initUpdater } from './updater';
 import { installApplicationMenu } from './menu';
 import { registerIpc } from './ipc';
@@ -65,9 +66,10 @@ app.whenReady().then(() => {
   const tabs = new TabManager(win);
   const crawler = new SiteCrawler();
   const picker = new Picker(tabs);
+  const passwords = new PasswordManager(tabs);
   const agent = new Agent(win, tabs, crawler, () => buildProvider());
 
-  registerIpc(win, tabs, agent, picker);
+  registerIpc(win, tabs, agent, picker, passwords);
   installApplicationMenu(win);
   initUpdater(win);
   log.info('forge booted', { provider: PreferencesRepo.get().provider });

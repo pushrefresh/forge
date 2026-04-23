@@ -20,6 +20,8 @@ import type {
 
 const log = createLogger('db');
 
+import type { StoredCredential } from '../passwords/store';
+
 export interface DbShape {
   version: number;
   preferences: UserPreferences;
@@ -30,6 +32,7 @@ export interface DbShape {
   actions: AgentAction[];
   artifacts: SavedArtifact[];
   extractions: ExtractionResult[];
+  credentials: StoredCredential[];
   secrets: {
     anthropicApiKey?: string;
     openaiApiKey?: string;
@@ -37,7 +40,7 @@ export interface DbShape {
   };
 }
 
-const DB_VERSION = 4;
+const DB_VERSION = 5;
 
 function nowISO() {
   return new Date().toISOString();
@@ -72,6 +75,10 @@ function migrate(db: DbShape): void {
     if (!('lastSelectedWorkspaceId' in p)) p.lastSelectedWorkspaceId = null;
     if (!('lastSelectedMissionId' in p)) p.lastSelectedMissionId = null;
     if (!('lastView' in p)) p.lastView = null;
+  }
+  // v4 → v5: credentials array for the password manager.
+  if (!Array.isArray((db as unknown as { credentials?: unknown }).credentials)) {
+    (db as unknown as { credentials: unknown[] }).credentials = [];
   }
 }
 
@@ -129,6 +136,7 @@ function defaultDb(): DbShape {
     actions: [],
     artifacts: [],
     extractions: [],
+    credentials: [],
     secrets: {
       ...(envAnthropic ? { anthropicApiKey: envAnthropic } : {}),
       ...(envOpenAI ? { openaiApiKey: envOpenAI } : {}),

@@ -24,6 +24,8 @@ import { PreferencesRepo } from '../db/repositories/preferences';
 import { ArtifactRepo } from '../db/repositories/artifacts';
 import type { TabManager } from '../browser/TabManager';
 import type { Picker } from '../browser/picker';
+import type { PasswordManager } from '../passwords/PasswordManager';
+import { PasswordStore } from '../passwords/store';
 import { extractSnapshot } from '../page/extractor';
 import type { Agent } from '../agent/Agent';
 
@@ -32,6 +34,7 @@ export function registerIpc(
   tabs: TabManager,
   agent: Agent,
   picker: Picker,
+  passwords: PasswordManager,
 ): void {
   // System
   registerHandler(IPC.AppGetSnapshot, null, () => getDb().snapshot());
@@ -164,6 +167,39 @@ export function registerIpc(
     await picker.cancel();
     return { ok: true as const };
   });
+
+  // Password manager
+  registerHandler(IPC.PasswordList, null, () => PasswordStore.list());
+  registerHandler(IPC.PasswordFindForActive, null, () =>
+    passwords.findForActive(),
+  );
+  registerHandler(IPC.PasswordSnapshot, null, () =>
+    passwords.snapshotActiveForm(),
+  );
+  registerHandler(
+    IPC.PasswordSave,
+    z.object({
+      url: z.string().url(),
+      username: z.string().min(1),
+      password: z.string().min(1),
+    }),
+    (input) => PasswordStore.save(input),
+  );
+  registerHandler(
+    IPC.PasswordFillActive,
+    z.object({ credentialId: z.string() }),
+    async ({ credentialId }) => ({
+      ok: await passwords.fillActive(credentialId),
+    }),
+  );
+  registerHandler(
+    IPC.PasswordDelete,
+    z.object({ id: z.string() }),
+    async ({ id }) => {
+      await PasswordStore.remove(id);
+      return { ok: true as const };
+    },
+  );
 
   // Agent
   registerHandler(IPC.AgentRunCommand, CommandRunInput, (input) =>

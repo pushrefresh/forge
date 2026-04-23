@@ -14,6 +14,8 @@ import { Settings } from '../settings/Settings';
 import { Welcome } from '../welcome/Welcome';
 import { SearchOverlay } from '../search/SearchOverlay';
 import { UpdateToast } from '../updater/UpdateToast';
+import { SaveLoginModal } from '../passwords/SaveLoginModal';
+import { FillPicker } from '../passwords/FillPicker';
 import { Toast } from './Toast';
 import { cn } from '../../lib/cn';
 
@@ -175,6 +177,39 @@ export function AppShell() {
         handler: () => void armPicker(),
       },
       {
+        combo: 'meta+shift+l',
+        description: 'fill login',
+        handler: () =>
+          useForgeStore.getState().setPasswordFillPickerOpen(true),
+      },
+      {
+        combo: 'meta+shift+s',
+        description: 'save login',
+        handler: () => {
+          void ipc()
+            .passwords.snapshot()
+            .then((snap) => {
+              const store = useForgeStore.getState();
+              if (!snap || !snap.hasPasswordField) {
+                store.toast(
+                  'warning',
+                  'no login form detected on this page',
+                );
+                return;
+              }
+              store.setPasswordSavePrompt({
+                url: snap.url,
+                host: snap.host,
+                username: snap.username,
+                password: snap.password,
+              });
+            })
+            .catch((err) =>
+              useForgeStore.getState().toast('error', String(err)),
+            );
+        },
+      },
+      {
         combo: 'meta+alt+i',
         description: 'toggle devtools',
         handler: () => void ipc().tabs.toggleDevTools(),
@@ -280,6 +315,8 @@ export function AppShell() {
       <Settings />
       <SearchOverlay />
       <UpdateToast />
+      <SaveLoginModal />
+      <FillPicker />
       <Toast />
     </div>
   );

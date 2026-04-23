@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ExternalLink, MessageCircle, X } from 'lucide-react';
+import { ExternalLink, Lock, MessageCircle, Trash2, X } from 'lucide-react';
 import { useForgeStore } from '../../state/store';
 import { ipc } from '../../lib/ipc';
 import { Dialog } from '../ui/Dialog';
@@ -9,7 +9,7 @@ import { Eyebrow } from '../ui/Eyebrow';
 import { ForgeMark } from '../ui/ForgeMark';
 import { Badge } from '../ui/Badge';
 import { Segment } from '../ui/Segment';
-import type { AIProvider } from '@shared/types';
+import type { AIProvider, Credential } from '@shared/types';
 import { DEFAULT_MODEL_FOR } from '@shared/types';
 
 const PROVIDER_OPTIONS: ReadonlyArray<{ value: AIProvider; label: string }> = [
@@ -192,6 +192,10 @@ export function Settings() {
         </div>
 
         <div className="pt-2 border-t border-line">
+          <SavedLogins />
+        </div>
+
+        <div className="pt-2 border-t border-line">
           <Eyebrow className="mb-3 block">beta feedback</Eyebrow>
           <a
             href={buildFeedbackMailto()}
@@ -229,6 +233,97 @@ export function Settings() {
         </Button>
       </div>
     </Dialog>
+  );
+}
+
+/**
+ * Saved login management. Shows stored credentials host + username only
+ * (never renders the password); delete button wipes the record from the
+ * encrypted store.
+ */
+function SavedLogins() {
+  const toast = useForgeStore((s) => s.toast);
+  const open = useForgeStore((s) => s.ui.settingsOpen);
+  const [creds, setCreds] = useState<Credential[] | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    ipc()
+      .passwords.list()
+      .then((list) => {
+        if (!cancelled) setCreds(list);
+      })
+      .catch(() => {
+        if (!cancelled) setCreds([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
+
+  async function onDelete(id: string, host: string) {
+    try {
+      await ipc().passwords.remove(id);
+      setCreds((prev) => (prev ?? []).filter((c) => c.id !== id));
+      toast('info', `deleted login for ${host}`);
+    } catch (err) {
+      toast('error', String(err));
+    }
+  }
+
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-3">
+        <Eyebrow>saved logins</Eyebrow>
+        {creds && creds.length > 0 && (
+          <Badge tone="neutral">{creds.length}</Badge>
+        )}
+      </div>
+      {creds === null ? (
+        <p className="text-[12px] text-fg-mute">loading…</p>
+      ) : creds.length === 0 ? (
+        <p className="text-[12px] text-fg-mute leading-relaxed">
+          no saved logins yet. press{' '}
+          <span className="font-mono text-fg-dim">⇧⌘s</span> on a page with a
+          login form to save one, or{' '}
+          <span className="font-mono text-fg-dim">⇧⌘l</span> to auto-fill.
+        </p>
+      ) : (
+        <ul className="space-y-1.5">
+          {creds.map((c) => (
+            <li
+              key={c.id}
+              className="flex items-center gap-3 p-2.5 rounded-md border border-line bg-surface-1"
+            >
+              <Lock
+                className="h-3.5 w-3.5 text-fg-mute shrink-0"
+                strokeWidth={1.5}
+              />
+              <div className="flex-1 min-w-0">
+                <div className="text-[13px] text-fg truncate">{c.username}</div>
+                <div className="font-mono text-[10px] uppercase tracking-caps text-fg-mute truncate">
+                  {c.host}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => void onDelete(c.id, c.host)}
+                aria-label={`delete login for ${c.host}`}
+                className="h-7 w-7 inline-flex items-center justify-center rounded-sm text-fg-mute hover:text-err hover:bg-surface-3 transition-colors"
+              >
+                <Trash2 className="h-3.5 w-3.5" strokeWidth={1.5} />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <p className="mt-3 text-[11px] text-fg-mute leading-relaxed">
+        logins are encrypted against your macos keychain and never leave your
+        machine. <span className="font-mono text-fg-dim">⇧⌘l</span> to fill ·{' '}
+        <span className="font-mono text-fg-dim">⇧⌘s</span> to save.
+      </p>
+    </div>
   );
 }
 

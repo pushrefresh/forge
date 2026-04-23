@@ -232,6 +232,26 @@ export interface AppSnapshot {
 }
 
 /**
+ * A stored login credential. The `password` is only present in payloads
+ * returned for fill operations — list endpoints omit it so the renderer
+ * never holds a decrypted password in memory outside the immediate
+ * autofill moment.
+ */
+export interface Credential {
+  id: string;
+  /** Normalized origin, e.g. "https://mail.google.com" (no path, no query). */
+  origin: string;
+  /** The host display (e.g. "mail.google.com") for list UIs. */
+  host: string;
+  username: string;
+  /** Present only on get-for-fill; otherwise undefined / omitted. */
+  password?: string;
+  createdAt: ISODateString;
+  updatedAt: ISODateString;
+  lastUsedAt: ISODateString | null;
+}
+
+/**
  * An element picked from a live page via the in-page picker. The renderer
  * tracks these as composer attachments; the agent receives them as scoped
  * context on the next turn, so the user can say "summarize this" and the

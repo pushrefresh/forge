@@ -40,7 +40,7 @@ const PROVIDERS: ReadonlyArray<ProviderChoice> = [
   {
     value: 'openrouter',
     label: 'OpenRouter',
-    blurb: 'One key, many models — Claude, GPT, Gemini, Llama.',
+    blurb: 'One key, many models — Claude, GPT, Gemini, Grok, Llama.',
     keyPrefix: 'sk-or-…',
     keyHref: 'https://openrouter.ai/keys',
     keyHrefLabel: 'openrouter.ai',

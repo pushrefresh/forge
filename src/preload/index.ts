@@ -96,6 +96,16 @@ const api = {
     dismiss: () => invoke(IPC.UpdaterDismiss),
   },
 
+  passwords: {
+    list: () => invoke(IPC.PasswordList),
+    findForActive: () => invoke(IPC.PasswordFindForActive),
+    snapshot: () => invoke(IPC.PasswordSnapshot),
+    save: (input: Req<typeof IPC.PasswordSave>) => invoke(IPC.PasswordSave, input),
+    fill: (credentialId: string) =>
+      invoke(IPC.PasswordFillActive, { credentialId }),
+    remove: (id: string) => invoke(IPC.PasswordDelete, { id }),
+  },
+
   agent: {
     run: (input: Req<typeof IPC.AgentRunCommand>) => invoke(IPC.AgentRunCommand, input),
     cancel: (commandRunId: string) => invoke(IPC.AgentCancel, { commandRunId }),

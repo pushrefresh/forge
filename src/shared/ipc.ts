@@ -6,6 +6,7 @@ import type {
   AppSnapshot,
   BrowserTab,
   CommandRun,
+  Credential,
   Mission,
   PageSnapshot,
   PickedElement,
@@ -75,6 +76,14 @@ export const IPC = {
   UpdaterDismiss: 'updater:dismiss',
   UpdaterAck: 'updater:ack',
 
+  // Password manager
+  PasswordList: 'password:list',
+  PasswordFindForActive: 'password:findForActive',
+  PasswordSnapshot: 'password:snapshot',
+  PasswordSave: 'password:save',
+  PasswordFillActive: 'password:fillActive',
+  PasswordDelete: 'password:delete',
+
   // Agent
   AgentRunCommand: 'agent:runCommand',
   AgentCancel: 'agent:cancel',
@@ -138,6 +147,26 @@ export interface IpcContract {
   [IPC.UpdaterInstall]: { req: void; res: { ok: true } };
   [IPC.UpdaterDismiss]: { req: void; res: { ok: true } };
   [IPC.UpdaterAck]: { req: void; res: { ok: true } };
+
+  [IPC.PasswordList]: { req: void; res: Credential[] };
+  [IPC.PasswordFindForActive]: { req: void; res: Credential[] };
+  [IPC.PasswordSnapshot]: {
+    req: void;
+    res: {
+      url: string;
+      host: string;
+      hasPasswordField: boolean;
+      username: string;
+      password: string;
+      hasUsernameField: boolean;
+    } | null;
+  };
+  [IPC.PasswordSave]: {
+    req: { url: string; username: string; password: string };
+    res: Credential;
+  };
+  [IPC.PasswordFillActive]: { req: { credentialId: string }; res: { ok: boolean } };
+  [IPC.PasswordDelete]: { req: { id: string }; res: { ok: true } };
 
   [IPC.AgentRunCommand]: { req: CommandRunInput; res: CommandRun };
   [IPC.AgentCancel]: { req: { commandRunId: string }; res: { ok: true } };

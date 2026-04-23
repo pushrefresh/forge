@@ -1,0 +1,55 @@
+# electron-builder configuration for Forge.
+# Signing + notarization read the three APPLE_* env vars from .env (or the
+# shell) at build time. Publishing targets GitHub Releases — `release`
+# script below uploads signed DMGs + the latest-mac.yml feed file.
+
+appId: dev.pushrefresh.forge
+productName: Forge
+copyright: © 2026 Push Refresh
+
+directories:
+  output: release
+  buildResources: resources
+
+files:
+  - out/**/*
+  - package.json
+  - '!**/*.map'
+
+# Mac — signed, notarized, universal binary (Intel + Apple Silicon).
+mac:
+  category: public.app-category.productivity
+  target:
+    - target: dmg
+      arch:
+        - arm64
+        - x64
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  # Forge is an Electron browser — it needs these entitlements to open
+  # URLs in WebContentsView and load dynamic JS for the agent harness.
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
+  # electron-builder v24+ uses notarytool automatically when APPLE_ID +
+  # APPLE_APP_SPECIFIC_PASSWORD + APPLE_TEAM_ID are in env.
+  notarize: true
+
+dmg:
+  contents:
+    - x: 130
+      y: 220
+    - x: 410
+      y: 220
+      type: link
+      path: /Applications
+  writeUpdateInfo: true
+
+# Auto-updater feed — GitHub Releases. Repo is public, so electron-updater
+# checks the atom feed anonymously (no token needed in shipped DMGs).
+# GH_TOKEN is still required at BUILD time for `npm run release` to upload.
+publish:
+  provider: github
+  owner: pushrefresh
+  repo: forge
+  private: false
+  releaseType: release

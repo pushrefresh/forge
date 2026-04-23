@@ -93,6 +93,10 @@ export const PreferencesUpdateInput = z.object({
   openrouterApiKey: z.string().optional(),
   homeUrl: z.string().optional(),
   searchEngine: z.enum(['google', 'duckduckgo', 'kagi']).optional(),
+  onboardingCompleted: z.boolean().optional(),
+  lastSelectedWorkspaceId: IdSchema.nullable().optional(),
+  lastSelectedMissionId: IdSchema.nullable().optional(),
+  lastView: z.enum(['start', 'dashboard', 'tab', 'artifact']).nullable().optional(),
 });
 
 export const SaveArtifactInput = z.object({

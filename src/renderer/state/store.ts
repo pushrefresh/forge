@@ -39,6 +39,12 @@ export interface UIState {
   pickedElements: PickedElement[];
   /** True while the in-page picker is armed (waiting for a click on the page). */
   pickerArmed: boolean;
+  /**
+   * A prompt that should populate the chat composer on next mount — used
+   * by mission templates to seed a starting prompt. Consumed (cleared) by
+   * the composer once it's had a chance to read it.
+   */
+  pendingComposerDraft: string | null;
   toast: { kind: 'info' | 'success' | 'warning' | 'error'; message: string } | null;
 }
 
@@ -82,6 +88,7 @@ export interface ForgeStore {
   removePickedElement(id: string): void;
   clearPickedElements(): void;
   setPickerArmed(armed: boolean): void;
+  setPendingComposerDraft(text: string | null): void;
   toast(kind: 'info' | 'success' | 'warning' | 'error', message: string): void;
   clearToast(): void;
 }
@@ -109,6 +116,7 @@ export const useForgeStore = create<ForgeStore>((set, get) => ({
     chatFocusNonce: 0,
     pickedElements: [],
     pickerArmed: false,
+    pendingComposerDraft: null,
     toast: null,
   },
 
@@ -196,6 +204,16 @@ export const useForgeStore = create<ForgeStore>((set, get) => ({
     set((s) => ({ ui: { ...s.ui, pickedElements: [] } })),
   setPickerArmed: (armed) =>
     set((s) => ({ ui: { ...s.ui, pickerArmed: armed } })),
+  setPendingComposerDraft: (text) =>
+    set((s) => ({
+      ui: {
+        ...s.ui,
+        pendingComposerDraft: text,
+        // If there's a draft waiting, surface the chat rail so the user
+        // can see + edit it immediately.
+        rightRailOpen: text ? true : s.ui.rightRailOpen,
+      },
+    })),
   toast: (kind, message) => set((s) => ({ ui: { ...s.ui, toast: { kind, message } } })),
   clearToast: () => set((s) => ({ ui: { ...s.ui, toast: null } })),
 }));

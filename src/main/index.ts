@@ -12,6 +12,7 @@ initTelemetry();
 import { TabManager } from './browser/TabManager';
 import { SiteCrawler } from './browser/SiteCrawler';
 import { Picker } from './browser/picker';
+import { initUpdater } from './updater';
 import { registerIpc } from './ipc';
 import { getDb } from './db/database';
 import { Agent } from './agent/Agent';
@@ -34,6 +35,18 @@ if (!gotLock) {
 
 app.setName('Forge');
 
+// macOS "About Forge" menu item — populates the default panel with the
+// product name, version (from package.json), and copyright so the app
+// meets standard macOS expectations.
+app.setAboutPanelOptions({
+  applicationName: 'Forge',
+  applicationVersion: app.getVersion(),
+  version: `build ${process.arch}`,
+  copyright: `© ${new Date().getFullYear()} Push Refresh`,
+  website: 'https://github.com/pushrefresh/forge',
+  credits: 'Forge — the browser that gets shit done.',
+});
+
 // Register the operator:// scheme so we can use it as the home URL safely.
 // We do not actually load content from it — tabs with this URL render the
 // renderer's built-in NewTabHome component instead.
@@ -54,6 +67,7 @@ app.whenReady().then(() => {
   const agent = new Agent(win, tabs, crawler, () => buildProvider());
 
   registerIpc(win, tabs, agent, picker);
+  initUpdater(win);
   log.info('forge booted', { provider: PreferencesRepo.get().provider });
 });
 

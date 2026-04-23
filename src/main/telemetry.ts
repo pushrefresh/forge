@@ -27,6 +27,16 @@ export function initTelemetry(): void {
     ipcMode: IPCMode.Both,
     // Keep volume sane in beta — sample perf events heavily, full error events.
     tracesSampleRate: environment === 'production' ? 0.1 : 1.0,
+    // Filter known-benign noise so the dashboard only surfaces things we
+    // actually need to look at. electron-updater in particular emits 404s
+    // before a first release exists + network errors when the user is
+    // offline — neither is actionable.
+    ignoreErrors: [
+      /releases\.atom/,
+      /HttpError:\s*404/,
+      /ECONNREFUSED|ENOTFOUND|ETIMEDOUT/,
+      /autoUpdater/i,
+    ],
     // Electron SDK captures uncaught exceptions + unhandledRejections by default.
     // Scrub secrets from breadcrumbs / error messages before send.
     beforeSend(event) {

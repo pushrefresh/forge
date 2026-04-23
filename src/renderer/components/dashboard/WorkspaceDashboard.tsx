@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, Sparkles } from 'lucide-react';
 import { useForgeStore } from '../../state/store';
 import { ipc } from '../../lib/ipc';
 import { switchMission } from '../../lib/scope';
@@ -9,6 +9,7 @@ import { Input } from '../ui/Input';
 import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
 import { cn } from '../../lib/cn';
+import { MISSION_TEMPLATES, type MissionTemplate } from '../../lib/templates';
 import type { MissionStatus } from '@shared/types';
 
 function statusTone(status: MissionStatus): 'ok' | 'warn' | 'accent' | 'neutral' {
@@ -33,6 +34,8 @@ export function WorkspaceDashboard() {
 
   const [creating, setCreating] = useState(false);
   const [title, setTitle] = useState('');
+  const [selectedTemplate, setSelectedTemplate] = useState<MissionTemplate | null>(null);
+  const setPendingComposerDraft = useForgeStore((s) => s.setPendingComposerDraft);
 
   async function handleCreate() {
     if (!workspace) return;
@@ -41,11 +44,24 @@ export function WorkspaceDashboard() {
     const m = await ipc().missions.create({
       workspaceId: workspace.id,
       title: t,
-      description: '',
+      description: selectedTemplate?.mission.description ?? '',
     });
+    if (selectedTemplate) setPendingComposerDraft(selectedTemplate.prompt);
     setTitle('');
+    setSelectedTemplate(null);
     setCreating(false);
     void switchMission(m.id);
+  }
+
+  function pickTemplate(tpl: MissionTemplate) {
+    setSelectedTemplate(tpl);
+    setTitle(tpl.mission.title);
+  }
+
+  function resetCreate() {
+    setCreating(false);
+    setTitle('');
+    setSelectedTemplate(null);
   }
 
   if (!workspace) {
@@ -101,34 +117,105 @@ export function WorkspaceDashboard() {
         </div>
 
         {creating && (
-          <div className="mt-3 p-4 bg-surface-1 border border-line-strong rounded-md">
-            <Eyebrow className="mb-2 block">mission title</Eyebrow>
-            <Input
-              autoFocus
-              placeholder="e.g. compare 5 payroll tools"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleCreate();
-                if (e.key === 'Escape') {
-                  setCreating(false);
-                  setTitle('');
-                }
-              }}
-            />
-            <div className="mt-3 flex items-center justify-end gap-2">
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => {
-                  setCreating(false);
-                  setTitle('');
-                }}
+          <div className="mt-3 p-5 bg-surface-1 border border-line-strong rounded-md">
+            <Eyebrow tone="accent" className="mb-3 block">
+              pick a template — or start blank
+            </Eyebrow>
+            <div className="grid grid-cols-2 gap-2">
+              {MISSION_TEMPLATES.map((tpl) => {
+                const Icon = tpl.icon;
+                const isActive = selectedTemplate?.id === tpl.id;
+                return (
+                  <button
+                    key={tpl.id}
+                    onClick={() => pickTemplate(tpl)}
+                    className={cn(
+                      'text-left p-3 rounded-md border transition-colors duration-160 ease-precise',
+                      isActive
+                        ? 'border-accent bg-bg shadow-focus'
+                        : 'border-line bg-bg/40 hover:bg-bg hover:border-line',
+                    )}
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      <Icon
+                        className={cn(
+                          'h-3.5 w-3.5 shrink-0',
+                          isActive ? 'text-accent' : 'text-fg-mute',
+                        )}
+                        strokeWidth={1.5}
+                      />
+                      <span className="font-mono text-[10px] uppercase tracking-caps text-fg">
+                        {tpl.name}
+                      </span>
+                    </div>
+                    <p className="text-[11.5px] text-fg-dim leading-snug">
+                      {tpl.blurb}
+                    </p>
+                  </button>
+                );
+              })}
+              <button
+                onClick={() => setSelectedTemplate(null)}
+                className={cn(
+                  'col-span-2 text-left p-3 rounded-md border transition-colors duration-160 ease-precise',
+                  !selectedTemplate
+                    ? 'border-accent bg-bg shadow-focus'
+                    : 'border-line bg-bg/40 hover:bg-bg hover:border-line',
+                )}
               >
+                <div className="flex items-center gap-2">
+                  <Plus
+                    className={cn(
+                      'h-3.5 w-3.5 shrink-0',
+                      !selectedTemplate ? 'text-accent' : 'text-fg-mute',
+                    )}
+                    strokeWidth={1.5}
+                  />
+                  <span className="font-mono text-[10px] uppercase tracking-caps text-fg">
+                    blank mission
+                  </span>
+                  <span className="text-[11.5px] text-fg-dim">
+                    — start from nothing, use ⌘K to run.
+                  </span>
+                </div>
+              </button>
+            </div>
+
+            <div className="mt-4">
+              <Eyebrow className="mb-1.5 block">mission title</Eyebrow>
+              <Input
+                autoFocus
+                placeholder="e.g. compare 5 payroll tools"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleCreate();
+                  if (e.key === 'Escape') resetCreate();
+                }}
+              />
+              {selectedTemplate && (
+                <p className="mt-2 text-[11px] text-fg-mute leading-relaxed">
+                  using{' '}
+                  <span className="font-mono text-fg-dim">
+                    {selectedTemplate.name}
+                  </span>{' '}
+                  — the chat composer will open with a ready-to-edit prompt.
+                </p>
+              )}
+            </div>
+
+            <div className="mt-4 flex items-center justify-end gap-2">
+              <Button size="sm" variant="ghost" onClick={resetCreate}>
                 cancel
               </Button>
-              <Button size="sm" variant="primary" onClick={handleCreate}>
-                create
+              <Button
+                size="sm"
+                variant="primary"
+                onClick={handleCreate}
+                disabled={!title.trim()}
+              >
+                <Sparkles className="h-3.5 w-3.5" strokeWidth={1.5} />
+                create mission
               </Button>
             </div>
           </div>

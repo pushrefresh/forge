@@ -32,6 +32,16 @@ export const PreferencesRepo = {
         ...(input.defaultModel !== undefined ? { defaultModel: input.defaultModel } : {}),
         ...(input.homeUrl !== undefined ? { homeUrl: input.homeUrl } : {}),
         ...(input.searchEngine !== undefined ? { searchEngine: input.searchEngine } : {}),
+        ...(input.onboardingCompleted !== undefined
+          ? { onboardingCompleted: input.onboardingCompleted }
+          : {}),
+        ...(input.lastSelectedWorkspaceId !== undefined
+          ? { lastSelectedWorkspaceId: input.lastSelectedWorkspaceId }
+          : {}),
+        ...(input.lastSelectedMissionId !== undefined
+          ? { lastSelectedMissionId: input.lastSelectedMissionId }
+          : {}),
+        ...(input.lastView !== undefined ? { lastView: input.lastView } : {}),
         anthropicApiKeyPresent: Boolean(d.secrets.anthropicApiKey),
         openaiApiKeyPresent: Boolean(d.secrets.openaiApiKey),
         openrouterApiKeyPresent: Boolean(d.secrets.openrouterApiKey),

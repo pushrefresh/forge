@@ -124,11 +124,22 @@ export class Agent {
       provider,
     ).catch((err) => {
       log.error('execute failed', { id: run.id, err: String(err) });
-      CommandRepo.setStatus(
-        run.id,
-        'failed',
-        `Agent error: ${err instanceof Error ? err.message : String(err)}`,
-      ).then((r) => r && this.emitCommand(r));
+      const isProviderErr =
+        typeof err === 'object' && err !== null && 'isProviderError' in err;
+      const message =
+        err instanceof Error ? err.message : String(err);
+      const summary = isProviderErr ? message : `Agent error: ${message}`;
+      CommandRepo.setStatus(run.id, 'failed', summary).then(
+        (r) => r && this.emitCommand(r),
+      );
+      // Surface as a toast so the user sees it even if the chat bubble
+      // isn't focused. Provider errors get the full humanized message;
+      // other crashes get a generic prefix so the UI isn't yelling stack
+      // traces.
+      this.win.webContents.send(IPC.EvtToast, {
+        kind: 'error',
+        message: isProviderErr ? message : 'agent run crashed — check Sentry',
+      });
     });
 
     return run;

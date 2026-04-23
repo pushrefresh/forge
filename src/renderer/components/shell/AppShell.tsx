@@ -11,6 +11,7 @@ import { TabStrip } from './TabStrip';
 import { BrowserViewport } from './BrowserViewport';
 import { ResultsPanel } from './ResultsPanel';
 import { Settings } from '../settings/Settings';
+import { Welcome } from '../welcome/Welcome';
 import { Toast } from './Toast';
 import { cn } from '../../lib/cn';
 
@@ -32,7 +33,34 @@ export function AppShell() {
   const toggleRightRail = useForgeStore((s) => s.toggleRightRail);
   const leftOpen = useForgeStore((s) => s.ui.leftRailOpen);
   const rightOpen = useForgeStore((s) => s.ui.rightRailOpen);
+  const preferences = useForgeStore((s) => s.preferences);
+  const ready = useForgeStore((s) => s.ready);
   const toast = useForgeStore((s) => s.toast);
+
+  const needsOnboarding =
+    ready && preferences && preferences.onboardingCompleted === false;
+
+  // Persist session state (workspace / mission / view) so a crash or
+  // unexpected quit restores the same context on next launch. Debounced
+  // because every view/tab switch would otherwise hit the IPC layer.
+  const selectedWorkspaceId = useForgeStore((s) => s.selectedWorkspaceId);
+  const selectedMissionId = useForgeStore((s) => s.selectedMissionId);
+  const currentView = useForgeStore((s) => s.ui.view);
+  useEffect(() => {
+    if (!ready || !preferences) return;
+    const t = setTimeout(() => {
+      void ipc()
+        .prefs.update({
+          lastSelectedWorkspaceId: selectedWorkspaceId,
+          lastSelectedMissionId: selectedMissionId,
+          lastView: currentView,
+        })
+        .catch(() => {
+          /* session persistence is best-effort; don't bother the user */
+        });
+    }, 500);
+    return () => clearTimeout(t);
+  }, [ready, preferences, selectedWorkspaceId, selectedMissionId, currentView]);
 
   // Initial hydration
   useEffect(() => {
@@ -56,12 +84,37 @@ export function AppShell() {
             color: '#4A505B',
           });
           useForgeStore.getState().selectWorkspace(ws.id);
-        } else if (!useForgeStore.getState().selectedWorkspaceId) {
-          useForgeStore.getState().selectWorkspace(snap.workspaces[0].id);
+        } else {
+          // Crash recovery: restore the last workspace + mission if we had
+          // them, and they still exist. Otherwise pick the first workspace.
+          const lastWs = snap.preferences.lastSelectedWorkspaceId;
+          const lastMission = snap.preferences.lastSelectedMissionId;
+          const restoredWs =
+            lastWs && snap.workspaces.some((w) => w.id === lastWs)
+              ? lastWs
+              : snap.workspaces[0].id;
+          useForgeStore.getState().selectWorkspace(restoredWs);
+          if (
+            lastMission &&
+            snap.missions.some(
+              (m) => m.id === lastMission && m.workspaceId === restoredWs,
+            )
+          ) {
+            useForgeStore.getState().selectMission(lastMission);
+          }
         }
 
-        // Always boot on the start page so users explicitly choose a workspace.
-        useForgeStore.getState().setView('start');
+        // Restore last view if it's safe; otherwise start page. A tab view
+        // only makes sense if tabs were restored from the DB.
+        const lastView = snap.preferences.lastView;
+        const hasTabs = snap.tabs.length > 0;
+        const safeView =
+          lastView === 'tab' && !hasTabs
+            ? 'start'
+            : lastView && ['start', 'dashboard', 'tab', 'artifact'].includes(lastView)
+              ? lastView
+              : 'start';
+        useForgeStore.getState().setView(safeView);
         setReady(true);
       } catch (err) {
         toast('error', `failed to init: ${String(err)}`);
@@ -155,6 +208,18 @@ export function AppShell() {
       unsub();
     };
   }, [requestChatFocus, setSettings, toggleLeftRail, toggleRightRail]);
+
+  if (needsOnboarding) {
+    return (
+      <div className="h-full w-full flex flex-col bg-bg text-fg">
+        <TitleBar />
+        <div className="flex-1 min-h-0 relative">
+          <Welcome />
+        </div>
+        <Toast />
+      </div>
+    );
+  }
 
   return (
     <div className="h-full w-full flex flex-col bg-bg text-fg">

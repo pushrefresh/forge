@@ -33,12 +33,12 @@ export class TabManager {
   private viewVisible = true;
 
   constructor(private readonly win: BrowserWindow) {
-    // MVP: tab views can't be resurrected without re-loading every URL
-    // (which would be slow and could break auth). Clear the tab list at
-    // launch so the renderer always opens on a fresh Home tab.
-    if (TabRepo.list().length > 0) {
-      void TabRepo.clear();
-    }
+    // Crash recovery: leave persisted tabs in place. WebContentsViews can't
+    // be resurrected directly, but TabManager.activate() lazily re-attaches
+    // a view for any non-home tab that doesn't have one, so stored tab URLs
+    // come back live when the user clicks them. The tab strip renders from
+    // repo data immediately, so the session feels intact even before a view
+    // reattaches.
   }
 
   private emit(tabs?: BrowserTab[]) {

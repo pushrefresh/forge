@@ -8,6 +8,7 @@ import type {
   ToolUseBlock,
 } from '.';
 import { createLogger } from '../../utils/logger';
+import { humanizeProviderError } from './errors';
 
 const log = createLogger('anthropic');
 
@@ -141,16 +142,7 @@ export class AnthropicProvider implements ModelProvider {
       };
     } catch (err) {
       log.error('anthropic turn failed', { err: String(err) });
-      const message = err instanceof Error ? err.message : String(err);
-      return {
-        text: `Model request failed: ${message}`,
-        toolCalls: [],
-        done: true,
-        assistantMessage: {
-          role: 'assistant',
-          content: [{ type: 'text', text: `Model request failed: ${message}` }],
-        },
-      };
+      throw humanizeProviderError('anthropic', err);
     }
   }
 }

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { X } from 'lucide-react';
+import { ExternalLink, MessageCircle, X } from 'lucide-react';
 import { useForgeStore } from '../../state/store';
 import { ipc } from '../../lib/ipc';
 import { Dialog } from '../ui/Dialog';
@@ -190,6 +190,34 @@ export function Settings() {
             but the provider you selected.
           </p>
         </div>
+
+        <div className="pt-2 border-t border-line">
+          <Eyebrow className="mb-3 block">beta feedback</Eyebrow>
+          <a
+            href={buildFeedbackMailto()}
+            className="group flex items-start gap-3 p-3 rounded-md border border-line bg-surface-1 hover:bg-surface-2 transition-colors"
+          >
+            <MessageCircle
+              className="h-4 w-4 mt-0.5 text-accent shrink-0"
+              strokeWidth={1.5}
+            />
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1.5">
+                <span className="font-sans text-[13px] font-medium text-fg">
+                  send feedback
+                </span>
+                <ExternalLink
+                  className="h-3 w-3 text-fg-mute opacity-0 group-hover:opacity-100 transition-opacity"
+                  strokeWidth={1.5}
+                />
+              </div>
+              <p className="mt-0.5 text-[11px] text-fg-mute leading-relaxed">
+                bugs, missing features, rough edges — all welcome. opens your
+                email client pre-filled with version and OS info.
+              </p>
+            </div>
+          </a>
+        </div>
       </div>
 
       <div className="px-5 py-3 border-t border-line flex items-center justify-end gap-2">
@@ -202,6 +230,28 @@ export function Settings() {
       </div>
     </Dialog>
   );
+}
+
+function buildFeedbackMailto(): string {
+  const version =
+    typeof navigator !== 'undefined' && 'userAgent' in navigator
+      ? navigator.userAgent.match(/Forge\/([^\s]+)/)?.[1] ?? 'beta'
+      : 'beta';
+  const platform =
+    typeof navigator !== 'undefined' && 'platform' in navigator
+      ? navigator.platform
+      : 'unknown';
+  const body = [
+    'what happened:',
+    '',
+    '',
+    '---',
+    `version: ${version}`,
+    `platform: ${platform}`,
+  ].join('\n');
+  return `mailto:rossi@pushrefresh.com?subject=${encodeURIComponent(
+    'forge beta feedback',
+  )}&body=${encodeURIComponent(body)}`;
 }
 
 function Field({

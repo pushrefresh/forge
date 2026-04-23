@@ -399,6 +399,8 @@ function Composer({
   const pickedElements = useForgeStore((s) => s.ui.pickedElements);
   const removePickedElement = useForgeStore((s) => s.removePickedElement);
   const clearPickedElements = useForgeStore((s) => s.clearPickedElements);
+  const pendingDraft = useForgeStore((s) => s.ui.pendingComposerDraft);
+  const setPendingComposerDraft = useForgeStore((s) => s.setPendingComposerDraft);
 
   // External focus requests (⌘K, "run" button, etc.) — focus + select.
   useEffect(() => {
@@ -408,6 +410,27 @@ function Composer({
     el.focus();
     el.select();
   }, [focusNonce]);
+
+  // Template-seeded prompts: when a mission is created from a template,
+  // a draft lands here. Consume it once, focus the textarea so the user
+  // can edit the placeholders inline.
+  useEffect(() => {
+    if (!pendingDraft) return;
+    setValue(pendingDraft);
+    setPendingComposerDraft(null);
+    requestAnimationFrame(() => {
+      const el = ref.current;
+      if (!el) return;
+      el.focus();
+      // Put caret at the first placeholder if present — otherwise at the end.
+      const match = pendingDraft.match(/\[[^\]]+\]/);
+      if (match && match.index !== undefined) {
+        el.setSelectionRange(match.index, match.index + match[0].length);
+      } else {
+        el.setSelectionRange(el.value.length, el.value.length);
+      }
+    });
+  }, [pendingDraft, setPendingComposerDraft]);
 
   async function send() {
     const p = value.trim();

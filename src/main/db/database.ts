@@ -37,7 +37,7 @@ export interface DbShape {
   };
 }
 
-const DB_VERSION = 2;
+const DB_VERSION = 4;
 
 function nowISO() {
   return new Date().toISOString();
@@ -55,6 +55,23 @@ function migrate(db: DbShape): void {
     if (typeof r.inputTokens !== 'number') r.inputTokens = 0;
     if (typeof r.outputTokens !== 'number') r.outputTokens = 0;
     if (typeof r.costUsd !== 'number') r.costUsd = 0;
+  }
+  // v2 → v3: onboarding flag on UserPreferences.
+  if (db.preferences) {
+    const p = db.preferences as Partial<UserPreferences> & Record<string, unknown>;
+    if (typeof p.onboardingCompleted !== 'boolean') {
+      // Existing installs — if they've got any key, they're past onboarding.
+      p.onboardingCompleted = Boolean(
+        p.anthropicApiKeyPresent || p.openaiApiKeyPresent || p.openrouterApiKeyPresent,
+      );
+    }
+  }
+  // v3 → v4: session restore fields on UserPreferences.
+  if (db.preferences) {
+    const p = db.preferences as Partial<UserPreferences> & Record<string, unknown>;
+    if (!('lastSelectedWorkspaceId' in p)) p.lastSelectedWorkspaceId = null;
+    if (!('lastSelectedMissionId' in p)) p.lastSelectedMissionId = null;
+    if (!('lastView' in p)) p.lastView = null;
   }
 }
 
@@ -96,6 +113,12 @@ function defaultDb(): DbShape {
       openrouterApiKeyPresent: Boolean(envOpenRouter),
       homeUrl: 'forge://home',
       searchEngine: 'google',
+      // If any env key was provided at install time, the user is already
+      // set up — skip the first-run gate. Otherwise they'll see Welcome.
+      onboardingCompleted: Boolean(envAnthropic || envOpenAI || envOpenRouter),
+      lastSelectedWorkspaceId: null,
+      lastSelectedMissionId: null,
+      lastView: null,
       createdAt: now,
       updatedAt: now,
     },

@@ -8,6 +8,7 @@ import type {
   ToolUseBlock,
 } from '.';
 import { createLogger } from '../../utils/logger';
+import { humanizeProviderError } from './errors';
 
 const log = createLogger('openai');
 
@@ -149,16 +150,7 @@ export class OpenAIProvider implements ModelProvider {
       };
     } catch (err) {
       log.error(`${this.name} turn failed`, { err: String(err) });
-      const message = err instanceof Error ? err.message : String(err);
-      return {
-        text: `Model request failed: ${message}`,
-        toolCalls: [],
-        done: true,
-        assistantMessage: {
-          role: 'assistant',
-          content: [{ type: 'text', text: `Model request failed: ${message}` }],
-        },
-      };
+      throw humanizeProviderError(this.name, err);
     }
   }
 }

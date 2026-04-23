@@ -19,6 +19,12 @@ export interface UserPreferences {
   openrouterApiKeyPresent: boolean;
   homeUrl: string;
   searchEngine: 'google' | 'duckduckgo' | 'kagi';
+  /** True after the first-run gate has been passed (key saved or skip-to-mock). */
+  onboardingCompleted: boolean;
+  /** Session state — restored on relaunch so crashes don't lose context. */
+  lastSelectedWorkspaceId: string | null;
+  lastSelectedMissionId: string | null;
+  lastView: 'start' | 'dashboard' | 'tab' | 'artifact' | null;
   createdAt: ISODateString;
   updatedAt: ISODateString;
 }

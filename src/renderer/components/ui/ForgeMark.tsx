@@ -1,31 +1,37 @@
 import { cn } from '../../lib/cn';
+import markPng from '../../assets/forge-mark.png';
 
 /**
- * Primary Forge mark — blocked geometric F with an accent ember at the
- * strike point. `fill: currentColor` for the body so it tints with text
- * color; the ember square is always accent.
+ * Primary Forge mark — the real brand logo (a dimensional, lime-accent F
+ * rendered against transparency). Rasterized from the source SVG into a
+ * 256px PNG at bundle time; scales cleanly down to 14px chrome and up to
+ * Welcome-screen hero sizes. The `showEmber` prop is kept for API
+ * compatibility with the prior inline SVG mark but is no longer used —
+ * the ember is baked into the PNG.
  */
 export function ForgeMark({
   size = 16,
   className,
-  showEmber = true,
+  /** Retained for call-site compatibility; the real mark includes its own styling. */
+  showEmber: _showEmber = true,
 }: {
   size?: number;
   className?: string;
   showEmber?: boolean;
 }) {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  void _showEmber;
   return (
-    <svg
-      viewBox="0 0 24 24"
+    <img
+      src={markPng}
       width={size}
       height={size}
-      fill="none"
-      className={cn('inline-block shrink-0', className)}
+      alt=""
       aria-hidden="true"
-    >
-      <path d="M5 3h14v4h-8v4h6v4h-6v6H5V3z" fill="currentColor" />
-      {showEmber && <rect x="17" y="15" width="3" height="3" fill="#B8FF3C" />}
-    </svg>
+      className={cn('inline-block shrink-0 select-none', className)}
+      draggable={false}
+      style={{ imageRendering: 'auto' }}
+    />
   );
 }
 

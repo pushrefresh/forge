@@ -1,6 +1,6 @@
 {
   "name": "forge",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "forge — the browser that gets shit done.",
   "main": "out/main/index.js",
   "author": "Push Refresh",

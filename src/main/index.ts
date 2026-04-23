@@ -13,6 +13,7 @@ import { TabManager } from './browser/TabManager';
 import { SiteCrawler } from './browser/SiteCrawler';
 import { Picker } from './browser/picker';
 import { initUpdater } from './updater';
+import { installApplicationMenu } from './menu';
 import { registerIpc } from './ipc';
 import { getDb } from './db/database';
 import { Agent } from './agent/Agent';
@@ -67,6 +68,7 @@ app.whenReady().then(() => {
   const agent = new Agent(win, tabs, crawler, () => buildProvider());
 
   registerIpc(win, tabs, agent, picker);
+  installApplicationMenu(win);
   initUpdater(win);
   log.info('forge booted', { provider: PreferencesRepo.get().provider });
 });

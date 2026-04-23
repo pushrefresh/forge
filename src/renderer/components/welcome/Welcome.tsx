@@ -123,12 +123,10 @@ export function Welcome() {
       />
 
       <div className="relative w-full max-w-[560px]">
-        {/* Brand */}
-        <div className="flex items-center gap-2.5 mb-8">
-          <span className="text-accent">
-            <ForgeMark size={22} showEmber={false} />
-          </span>
-          <span className="font-mono text-[11px] uppercase tracking-caps text-fg-mute">
+        {/* Brand — mark stacked above the label */}
+        <div className="mb-10">
+          <ForgeMark size={40} className="mb-3" />
+          <span className="block font-mono text-[11px] uppercase tracking-caps text-fg-mute">
             welcome to forge
           </span>
         </div>

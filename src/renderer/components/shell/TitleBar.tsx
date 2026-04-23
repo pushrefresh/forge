@@ -23,48 +23,48 @@ export function TitleBar() {
       {/* Space for macOS traffic lights */}
       <div className="w-[76px]" />
 
-      <div className="flex items-center gap-2">
-        <span className="text-accent">
-          <ForgeMark size={14} showEmber={false} />
-        </span>
+      <nav className="flex items-center font-mono text-[10px] uppercase tracking-caps">
+        <Crumb
+          onClick={() => setView('start')}
+          title="back to start"
+          strong
+        >
+          forge
+        </Crumb>
 
-        <nav className="flex items-center font-mono text-[10px] uppercase tracking-caps">
-          <Crumb
-            onClick={() => setView('start')}
-            title="back to start"
-            strong
-          >
-            forge
-          </Crumb>
+        {showCrumbs && selectedWorkspace && (
+          <>
+            <Separator />
+            <Crumb
+              onClick={() => void switchWorkspace(selectedWorkspace.id)}
+              title="back to workspace dashboard"
+            >
+              {selectedWorkspace.name.toLowerCase()}
+            </Crumb>
+          </>
+        )}
 
-          {showCrumbs && selectedWorkspace && (
-            <>
-              <Separator />
-              <Crumb
-                onClick={() => void switchWorkspace(selectedWorkspace.id)}
-                title="back to workspace dashboard"
-              >
-                {selectedWorkspace.name.toLowerCase()}
-              </Crumb>
-            </>
-          )}
-
-          {showCrumbs && selectedMission && (
-            <>
-              <Separator />
-              <Crumb
-                onClick={() => void switchMission(selectedMission.id)}
-                title="back to mission dashboard"
-                display
-              >
-                {selectedMission.title}
-              </Crumb>
-            </>
-          )}
-        </nav>
-      </div>
+        {showCrumbs && selectedMission && (
+          <>
+            <Separator />
+            <Crumb
+              onClick={() => void switchMission(selectedMission.id)}
+              title="back to mission dashboard"
+              display
+            >
+              {selectedMission.title}
+            </Crumb>
+          </>
+        )}
+      </nav>
 
       <div className="flex-1" />
+
+      {/* Forge mark on the right edge — subtle identity anchor, opposite
+          the traffic lights so the title bar feels balanced. */}
+      <div className="pr-3 flex items-center opacity-80">
+        <ForgeMark size={14} />
+      </div>
     </div>
   );
 }

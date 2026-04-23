@@ -129,7 +129,7 @@ export class TabManager {
       const modifier = input.meta || input.control;
       if (!modifier) return;
       const key = input.key.toLowerCase();
-      const intercepts = new Set(['t', 'w', 'l', 'k', ',', '[', ']', '/', 'e']);
+      const intercepts = new Set(['t', 'w', 'l', 'k', ',', '[', ']', '/', 'e', 'p']);
       if (!intercepts.has(key)) return;
       event.preventDefault();
       const parts: string[] = ['meta'];

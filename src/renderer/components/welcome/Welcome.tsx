@@ -8,6 +8,8 @@ import { Button } from '../ui/Button';
 import type { AIProvider } from '@shared/types';
 import { DEFAULT_MODEL_FOR } from '@shared/types';
 import { cn } from '../../lib/cn';
+import { findTemplate } from '../../lib/templates';
+import { switchMission } from '../../lib/scope';
 
 interface ProviderChoice {
   value: Exclude<AIProvider, 'mock'>;
@@ -79,6 +81,7 @@ export function Welcome() {
         onboardingCompleted: true,
       });
       setPreferences(next);
+      await seedFirstMission();
       // Store update triggers re-render; the gate in AppShell falls away.
     } catch (err) {
       toast('error', `couldn't save: ${err instanceof Error ? err.message : String(err)}`);
@@ -95,6 +98,7 @@ export function Welcome() {
         onboardingCompleted: true,
       });
       setPreferences(next);
+      await seedFirstMission();
       toast(
         'info',
         'using offline mock provider. add a key in settings (⌘,) to switch.',
@@ -234,4 +238,41 @@ export function Welcome() {
       </div>
     </div>
   );
+}
+
+/**
+ * Auto-create one demo mission on true first launch so the user lands in
+ * a ready-to-run state instead of an empty workspace. Seeds a comparative
+ * research template with a concrete example prompt — the user can replace
+ * it, edit the bracketed fields, or hit enter to watch Forge work.
+ *
+ * No-op if the user already has any missions (e.g. upgrading an install).
+ */
+async function seedFirstMission(): Promise<void> {
+  const state = useForgeStore.getState();
+  if (state.missions.length > 0) return;
+
+  const workspaceId = state.selectedWorkspaceId ?? state.workspaces[0]?.id;
+  if (!workspaceId) return;
+
+  const tpl = findTemplate('comparative-research');
+  if (!tpl) return;
+
+  try {
+    const mission = await ipc().missions.create({
+      workspaceId,
+      title: 'your first mission',
+      description: tpl.mission.description,
+    });
+    // A concrete, low-friction starter prompt. The bracketed fields make
+    // it obvious where to edit; hitting enter as-is still produces a real
+    // comparison (Forge will pick 5 popular note-taking apps).
+    state.setPendingComposerDraft(
+      'Find 5 popular note-taking apps and compare them on [pricing, markdown support, mobile app quality]. Open their sites as tabs and then build a comparison table.',
+    );
+    await switchMission(mission.id);
+  } catch {
+    // Seeding is a nicety — if it fails the user still lands on the
+    // normal empty-workspace state which is fully functional.
+  }
 }

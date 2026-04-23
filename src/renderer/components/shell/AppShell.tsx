@@ -12,6 +12,7 @@ import { BrowserViewport } from './BrowserViewport';
 import { ResultsPanel } from './ResultsPanel';
 import { Settings } from '../settings/Settings';
 import { Welcome } from '../welcome/Welcome';
+import { SearchOverlay } from '../search/SearchOverlay';
 import { Toast } from './Toast';
 import { cn } from '../../lib/cn';
 
@@ -35,6 +36,7 @@ export function AppShell() {
   const rightOpen = useForgeStore((s) => s.ui.rightRailOpen);
   const preferences = useForgeStore((s) => s.preferences);
   const ready = useForgeStore((s) => s.ready);
+  const setSearch = useForgeStore((s) => s.setSearch);
   const toast = useForgeStore((s) => s.toast);
 
   const needsOnboarding =
@@ -156,6 +158,7 @@ export function AppShell() {
       { combo: 'meta+[', description: 'toggle left rail', handler: () => toggleLeftRail() },
       { combo: 'meta+]', description: 'toggle right rail', handler: () => toggleRightRail() },
       { combo: 'meta+,', description: 'settings', handler: () => setSettings(true) },
+      { combo: 'meta+p', description: 'search', handler: () => setSearch(true) },
       { combo: 'meta+t', description: 'new tab', handler: () => void newTabInScope() },
       {
         combo: 'meta+shift+e',
@@ -207,7 +210,7 @@ export function AppShell() {
       binding.dispose();
       unsub();
     };
-  }, [requestChatFocus, setSettings, toggleLeftRail, toggleRightRail]);
+  }, [requestChatFocus, setSearch, setSettings, toggleLeftRail, toggleRightRail]);
 
   if (needsOnboarding) {
     return (
@@ -266,6 +269,7 @@ export function AppShell() {
       </div>
 
       <Settings />
+      <SearchOverlay />
       <Toast />
     </div>
   );

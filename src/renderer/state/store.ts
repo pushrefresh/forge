@@ -14,6 +14,7 @@ export type ViewMode = 'start' | 'dashboard' | 'tab' | 'artifact';
 
 export interface UIState {
   settingsOpen: boolean;
+  searchOpen: boolean;
   /**
    * Main content mode. "dashboard" = workspace/mission dashboard,
    * "tab" = URL tab content, "artifact" = artifact detail page.
@@ -78,6 +79,7 @@ export interface ForgeStore {
   selectMission(id: string | null): void;
 
   setSettings(open: boolean): void;
+  setSearch(open: boolean): void;
   requestChatFocus(): void;
   setView(v: ViewMode): void;
   openArtifact(id: string): void;
@@ -108,6 +110,7 @@ export const useForgeStore = create<ForgeStore>((set, get) => ({
 
   ui: {
     settingsOpen: false,
+    searchOpen: false,
     view: 'dashboard',
     activeArtifactId: null,
     splitViewTabId: null,
@@ -161,6 +164,7 @@ export const useForgeStore = create<ForgeStore>((set, get) => ({
   selectMission: (id) => set({ selectedMissionId: id }),
 
   setSettings: (open) => set((s) => ({ ui: { ...s.ui, settingsOpen: open } })),
+  setSearch: (open) => set((s) => ({ ui: { ...s.ui, searchOpen: open } })),
   requestChatFocus: () =>
     set((s) => ({
       ui: {

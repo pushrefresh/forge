@@ -278,3 +278,62 @@ a,
     opacity: 0;
   }
 }
+
+/* Print styles — activated by body.printing during artifact PDF export.
+   Hides all chrome (title bar, tab strip, top bar, rails, overlays) and
+   exposes only the artifact article on a white background with black text
+   so the resulting PDF is readable and self-contained. */
+@media print {
+  body.printing {
+    background: white !important;
+    color: black !important;
+    overflow: visible !important;
+  }
+  body.printing .drag,
+  body.printing nav,
+  body.printing aside,
+  body.printing [role='dialog'],
+  body.printing button,
+  body.printing .no-print {
+    display: none !important;
+  }
+  /* AppShell chrome wrappers — everything above the main article. */
+  body.printing > div > div:first-child,
+  body.printing .absolute.left-0.top-0.bottom-0,
+  body.printing .absolute.right-0.top-0.bottom-0 {
+    display: none !important;
+  }
+  body.printing article {
+    position: static !important;
+    max-width: none !important;
+    padding: 0 !important;
+    color: black !important;
+  }
+  body.printing article * {
+    color: inherit !important;
+    border-color: #ccc !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+  body.printing article h1,
+  body.printing article h2,
+  body.printing article h3 {
+    color: black !important;
+  }
+  body.printing article table {
+    page-break-inside: auto;
+  }
+  body.printing article tr {
+    page-break-inside: avoid;
+    page-break-after: auto;
+  }
+  body.printing article a {
+    color: #0b57d0 !important;
+    text-decoration: underline !important;
+  }
+  /* Keep structured table borders visible on print */
+  body.printing article th,
+  body.printing article td {
+    border: 1px solid #ccc !important;
+  }
+}

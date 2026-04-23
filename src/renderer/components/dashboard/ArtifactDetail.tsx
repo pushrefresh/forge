@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowLeft, Copy, Check } from 'lucide-react';
+import { ArrowLeft, Copy, Check, Download, Printer } from 'lucide-react';
 import { useForgeStore } from '../../state/store';
 import { Badge } from '../ui/Badge';
 import { Eyebrow } from '../ui/Eyebrow';
@@ -36,6 +36,34 @@ export function ArtifactDetail() {
     } catch {
       /* ignore */
     }
+  }
+
+  function handleDownloadMarkdown() {
+    if (!artifact) return;
+    const body = assembleMarkdown(artifact);
+    const blob = new Blob([body], { type: 'text/markdown;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = safeFilename(artifact.title, 'md');
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    // Release the blob url after the click has been consumed.
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  function handlePrint() {
+    // Print flow relies on the `@media print` rules in globals.css to hide
+    // chrome (tab strip, rails, buttons) and restyle the artifact for paper.
+    // Users pick "Save as PDF" in the system print sheet.
+    document.body.classList.add('printing');
+    // Give the browser a frame to re-flow under print styles before opening
+    // the dialog — otherwise webkit occasionally captures the pre-print layout.
+    requestAnimationFrame(() => {
+      window.print();
+      document.body.classList.remove('printing');
+    });
   }
 
   if (!artifact) {
@@ -120,6 +148,14 @@ export function ArtifactDetail() {
                   copy markdown
                 </>
               )}
+            </Button>
+            <Button size="sm" variant="ghost" onClick={handleDownloadMarkdown}>
+              <Download className="h-3.5 w-3.5" strokeWidth={1.5} />
+              download .md
+            </Button>
+            <Button size="sm" variant="ghost" onClick={handlePrint}>
+              <Printer className="h-3.5 w-3.5" strokeWidth={1.5} />
+              print / save pdf
             </Button>
           </div>
         </header>
@@ -241,6 +277,75 @@ function MetaCell({
       </span>
     </div>
   );
+}
+
+/**
+ * Turn an artifact into a self-contained markdown document with a small
+ * metadata header. Structured kinds (tables, plans) get serialized into
+ * pipe tables / ordered lists so the exported .md is useful on its own
+ * even if Forge isn't available to re-render.
+ */
+function assembleMarkdown(artifact: SavedArtifact): string {
+  const lines: string[] = [];
+  lines.push(`# ${artifact.title}`);
+  lines.push('');
+  lines.push(`> ${artifact.kind} · ${formatAbsoluteTime(artifact.createdAt)}`);
+  lines.push('');
+
+  const data = artifact.data as unknown;
+
+  if ((artifact.kind === 'extraction' || artifact.kind === 'comparison') && data) {
+    const table = data as ExtractionTableData;
+    if (table.rows?.length) {
+      const cols =
+        table.columns ??
+        Array.from(new Set(table.rows.flatMap((r) => Object.keys(r))));
+      lines.push(`| ${cols.join(' | ')} |`);
+      lines.push(`| ${cols.map(() => '---').join(' | ')} |`);
+      for (const row of table.rows) {
+        lines.push(
+          `| ${cols
+            .map((c) => stringifyCell(row[c]).replace(/\|/g, '\\|').replace(/\n/g, ' '))
+            .join(' | ')} |`,
+        );
+      }
+      lines.push('');
+    }
+  }
+
+  if (artifact.kind === 'plan' && data) {
+    const plan = data as PlanData;
+    if (plan.steps?.length) {
+      plan.steps.forEach((s, i) => {
+        lines.push(`${i + 1}. **${s.label}**${s.status ? ` _(${s.status})_` : ''}`);
+        if (s.note) lines.push(`   ${s.note}`);
+      });
+      lines.push('');
+    }
+  }
+
+  if (artifact.body) {
+    lines.push(artifact.body);
+    lines.push('');
+  }
+
+  return lines.join('\n');
+}
+
+function stringifyCell(v: unknown): string {
+  if (v === null || v === undefined) return '';
+  if (typeof v === 'boolean') return v ? '✓' : '—';
+  return String(v);
+}
+
+function safeFilename(title: string, ext: string): string {
+  const slug = title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 80);
+  const stamp = new Date().toISOString().slice(0, 10);
+  return `${slug || 'artifact'}-${stamp}.${ext}`;
 }
 
 function prettyTitle(title: string): string {

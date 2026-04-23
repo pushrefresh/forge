@@ -78,6 +78,7 @@ const api = {
     setBounds: (bounds: Req<typeof IPC.ViewSetBounds>) => invoke(IPC.ViewSetBounds, bounds),
     setVisible: (visible: boolean) => invoke(IPC.ViewSetVisible, { visible }),
     capture: () => invoke(IPC.ViewCapture),
+    focus: (target: 'chrome' | 'tab') => invoke(IPC.ViewFocus, { target }),
   },
 
   page: {
@@ -136,6 +137,8 @@ const api = {
     shortcut: (cb: Listener<typeof IPC.EvtShortcut>) => subscribe(IPC.EvtShortcut, cb),
     updateReady: (cb: Listener<typeof IPC.EvtUpdateReady>) =>
       subscribe(IPC.EvtUpdateReady, cb),
+    autofillOffer: (cb: Listener<typeof IPC.EvtAutofillOffer>) =>
+      subscribe(IPC.EvtAutofillOffer, cb),
   },
 };
 

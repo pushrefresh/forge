@@ -1,4 +1,5 @@
 import { BrowserWindow, Menu, WebContentsView, clipboard, shell } from 'electron';
+import type { WebContents } from 'electron';
 import { nanoid } from 'nanoid';
 import type { BrowserTab } from '@shared/types';
 import { TabRepo } from '../db/repositories/tabs';
@@ -31,6 +32,18 @@ export class TabManager {
   private activeId: string | null = null;
   private bounds: TabBounds = { x: 0, y: 0, width: 0, height: 0 };
   private viewVisible = true;
+  private pageReadyCb:
+    | ((wc: WebContents, url: string) => void)
+    | null = null;
+
+  /**
+   * Register a listener that fires whenever a tab finishes loading or does
+   * an in-page navigation. Used by PasswordManager to probe for login forms
+   * and offer autofill.
+   */
+  setOnPageReady(cb: (wc: WebContents, url: string) => void): void {
+    this.pageReadyCb = cb;
+  }
 
   constructor(private readonly win: BrowserWindow) {
     // Crash recovery: leave persisted tabs in place. WebContentsViews can't
@@ -159,6 +172,11 @@ export class TabManager {
         canGoForward: wc.navigationHistory.canGoForward(),
       });
       this.emit();
+      try {
+        this.pageReadyCb?.(wc, wc.getURL());
+      } catch {
+        /* listener errors must never break page load */
+      }
     });
     wc.on('page-title-updated', async (_e, title) => {
       await TabRepo.patch(tab.id, { title });
@@ -183,6 +201,11 @@ export class TabManager {
         canGoForward: wc.navigationHistory.canGoForward(),
       });
       this.emit();
+      try {
+        this.pageReadyCb?.(wc, url);
+      } catch {
+        /* listener errors must never break in-page nav */
+      }
     });
 
     // Open new windows as new tabs in the same manager.
@@ -451,6 +474,17 @@ export class TabManager {
     this.viewVisible = visible;
     const entry = this.activeId ? this.entries.get(this.activeId) : null;
     if (entry) entry.view.setVisible(visible);
+  }
+
+  /** Pull focus into the main window's renderer (away from the tab). */
+  focusChrome(): void {
+    this.win.webContents.focus();
+  }
+
+  /** Hand focus back to the active tab's webview (after chrome UI closes). */
+  focusTab(): void {
+    const entry = this.activeId ? this.entries.get(this.activeId) : null;
+    if (entry) entry.view.webContents.focus();
   }
 
   private layoutActive() {

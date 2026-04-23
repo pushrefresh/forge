@@ -67,6 +67,7 @@ app.whenReady().then(() => {
   const crawler = new SiteCrawler();
   const picker = new Picker(tabs);
   const passwords = new PasswordManager(tabs);
+  passwords.attachAutofillDetection(win);
   const agent = new Agent(win, tabs, crawler, () => buildProvider());
 
   registerIpc(win, tabs, agent, picker, passwords);

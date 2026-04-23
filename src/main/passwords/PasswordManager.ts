@@ -1,7 +1,9 @@
+import type { BrowserWindow, WebContents } from 'electron';
 import type { Credential } from '@shared/types';
 import type { TabManager } from '../browser/TabManager';
-import { PasswordStore } from './store';
+import { PasswordStore, normalizeOrigin } from './store';
 import { SNAPSHOT_FORM_SCRIPT, buildFillScript } from './scripts';
+import { IPC } from '@shared/ipc';
 import { createLogger } from '../utils/logger';
 
 const log = createLogger('password-manager');
@@ -93,5 +95,51 @@ export class PasswordManager {
     const active = this.tabs.getActive();
     if (!active) return [];
     return PasswordStore.findForOrigin(active.url);
+  }
+
+  /**
+   * Wire the TabManager's page-ready callback so that every did-stop-loading
+   * and did-navigate-in-page checks whether we have saved creds for the host
+   * and, if a login form is present, nudges the renderer to offer autofill.
+   */
+  attachAutofillDetection(win: BrowserWindow): void {
+    this.tabs.setOnPageReady((wc, url) => {
+      void this.checkAutofillForUrl(wc, url, win);
+    });
+  }
+
+  private async checkAutofillForUrl(
+    wc: WebContents,
+    url: string,
+    win: BrowserWindow,
+  ): Promise<void> {
+    const parsed = normalizeOrigin(url);
+    if (!parsed) return;
+
+    // Only offer when the URL belongs to the currently active tab — avoid
+    // prompting for background tabs that just finished loading.
+    const active = this.tabs.getActive();
+    if (!active) return;
+    const activeView = this.tabs.getViewFor(active.id);
+    if (!activeView || activeView.webContents.id !== wc.id) return;
+
+    const creds = PasswordStore.findForOrigin(url);
+    if (creds.length === 0) return;
+
+    let snap: unknown = null;
+    try {
+      snap = await wc.executeJavaScript(SNAPSHOT_FORM_SCRIPT, true);
+    } catch (err) {
+      log.warn('autofill snapshot failed', { err: String(err) });
+      return;
+    }
+    if (!snap) return;
+
+    if (win.isDestroyed()) return;
+    win.webContents.send(IPC.EvtAutofillOffer, {
+      url,
+      host: parsed.host,
+      credentials: creds.map((c) => ({ id: c.id, username: c.username })),
+    });
   }
 }

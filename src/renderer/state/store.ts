@@ -65,6 +65,24 @@ export interface UIState {
   } | null;
   /** When truthy, the Fill-login picker overlay is shown for the active tab. */
   passwordFillPickerOpen: boolean;
+  /**
+   * Inline "fill login as foo@bar.com?" prompt. Populated by the main
+   * process after a saved-credential host's login form is detected on the
+   * active tab. Single-cred case only — multi-cred goes straight to the
+   * Fill picker.
+   */
+  autofillOffer: {
+    url: string;
+    host: string;
+    credentialId: string;
+    username: string;
+  } | null;
+  /**
+   * Set of URLs we've already offered autofill for in this session. Prevents
+   * re-prompting on reload or when the user has already dismissed. Cleared
+   * on relaunch.
+   */
+  autofillOfferedUrls: Set<string>;
   toast: { kind: 'info' | 'success' | 'warning' | 'error'; message: string } | null;
 }
 
@@ -117,6 +135,15 @@ export interface ForgeStore {
     prompt: { url: string; host: string; username: string; password: string } | null,
   ): void;
   setPasswordFillPickerOpen(open: boolean): void;
+  setAutofillOffer(
+    offer: {
+      url: string;
+      host: string;
+      credentialId: string;
+      username: string;
+    } | null,
+  ): void;
+  dismissAutofillOffer(): void;
   toast(kind: 'info' | 'success' | 'warning' | 'error', message: string): void;
   clearToast(): void;
 }
@@ -149,6 +176,8 @@ export const useForgeStore = create<ForgeStore>((set, get) => ({
     updateReady: null,
     passwordSavePrompt: null,
     passwordFillPickerOpen: false,
+    autofillOffer: null,
+    autofillOfferedUrls: new Set<string>(),
     toast: null,
   },
 
@@ -253,6 +282,20 @@ export const useForgeStore = create<ForgeStore>((set, get) => ({
     set((s) => ({ ui: { ...s.ui, passwordSavePrompt: prompt } })),
   setPasswordFillPickerOpen: (open) =>
     set((s) => ({ ui: { ...s.ui, passwordFillPickerOpen: open } })),
+  setAutofillOffer: (offer) =>
+    set((s) => ({ ui: { ...s.ui, autofillOffer: offer } })),
+  dismissAutofillOffer: () =>
+    set((s) => {
+      const offered = new Set(s.ui.autofillOfferedUrls);
+      if (s.ui.autofillOffer) offered.add(s.ui.autofillOffer.url);
+      return {
+        ui: {
+          ...s.ui,
+          autofillOffer: null,
+          autofillOfferedUrls: offered,
+        },
+      };
+    }),
   toast: (kind, message) => set((s) => ({ ui: { ...s.ui, toast: { kind, message } } })),
   clearToast: () => set((s) => ({ ui: { ...s.ui, toast: null } })),
 }));

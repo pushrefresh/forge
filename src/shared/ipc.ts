@@ -62,6 +62,7 @@ export const IPC = {
   ViewSetBounds: 'view:setBounds',
   ViewSetVisible: 'view:setVisible',
   ViewCapture: 'view:capture',
+  ViewFocus: 'view:focus',
 
   // Page intelligence
   PageSnapshot: 'page:snapshot',
@@ -104,6 +105,7 @@ export const IPC = {
   EvtToast: 'evt:toast',
   EvtShortcut: 'evt:shortcut',
   EvtUpdateReady: 'evt:updateReady',
+  EvtAutofillOffer: 'evt:autofillOffer',
 } as const;
 
 export type IPCChannel = (typeof IPC)[keyof typeof IPC];
@@ -137,6 +139,7 @@ export interface IpcContract {
   [IPC.ViewSetBounds]: { req: ViewBoundsInput; res: { ok: true } };
   [IPC.ViewSetVisible]: { req: { visible: boolean }; res: { ok: true } };
   [IPC.ViewCapture]: { req: void; res: { dataUrl: string | null } };
+  [IPC.ViewFocus]: { req: { target: 'chrome' | 'tab' }; res: { ok: true } };
 
   [IPC.PageSnapshot]: { req: TabActionInput; res: PageSnapshot };
   [IPC.PageSnapshotAllTabs]: { req: void; res: PageSnapshot[] };
@@ -194,6 +197,14 @@ export interface IpcContract {
       version: string;
       releaseNotes: string | null;
       sizeBytes: number | null;
+    };
+  };
+  [IPC.EvtAutofillOffer]: {
+    req: void;
+    res: {
+      url: string;
+      host: string;
+      credentials: Array<{ id: string; username: string }>;
     };
   };
 }

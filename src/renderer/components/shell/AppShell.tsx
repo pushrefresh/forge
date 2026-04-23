@@ -159,6 +159,29 @@ export function AppShell() {
         void ipc().updater.ack();
       }),
     );
+    unsubs.push(
+      ipc().on.autofillOffer((offer) => {
+        const store = useForgeStore.getState();
+        // Skip if we've already prompted for this URL this session, or if
+        // the user already has another password UI open.
+        if (store.ui.autofillOfferedUrls.has(offer.url)) return;
+        if (store.ui.passwordSavePrompt) return;
+        if (store.ui.passwordFillPickerOpen) return;
+        if (offer.credentials.length === 0) return;
+        if (offer.credentials.length === 1) {
+          const c = offer.credentials[0];
+          store.setAutofillOffer({
+            url: offer.url,
+            host: offer.host,
+            credentialId: c.id,
+            username: c.username,
+          });
+        } else {
+          // Multiple saved logins — defer to the full picker.
+          store.setPasswordFillPickerOpen(true);
+        }
+      }),
+    );
     return () => unsubs.forEach((u) => u());
   }, [setTabs, setWorkspaces, setMissions, upsertCommand, upsertAction, setArtifacts, toast]);
 

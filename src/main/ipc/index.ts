@@ -136,6 +136,16 @@ export function registerIpc(
     dataUrl: await tabs.captureActive(),
   }));
 
+  registerHandler(
+    IPC.ViewFocus,
+    z.object({ target: z.enum(['chrome', 'tab']) }),
+    ({ target }) => {
+      if (target === 'chrome') tabs.focusChrome();
+      else tabs.focusTab();
+      return { ok: true as const };
+    },
+  );
+
   // Page intelligence
   registerHandler(IPC.PageSnapshot, TabActionInput, async ({ id }) => {
     const view = tabs.getViewFor(id);

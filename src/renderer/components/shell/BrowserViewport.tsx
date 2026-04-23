@@ -6,11 +6,13 @@ import { WorkspaceDashboard } from '../dashboard/WorkspaceDashboard';
 import { MissionDashboard } from '../dashboard/MissionDashboard';
 import { ArtifactDetail } from '../dashboard/ArtifactDetail';
 import { StartPage } from '../dashboard/StartPage';
+import { AutofillPrompt } from '../passwords/AutofillPrompt';
 
 // These are duplicated from AppShell intentionally — keeping the viewport
 // self-contained rather than threading constants through props.
 const LEFT_RAIL_W = 260;
 const RIGHT_RAIL_W = 380;
+const AUTOFILL_STRIP_H = 72;
 
 /**
  * Routing layer for the main content area.
@@ -28,6 +30,14 @@ export function BrowserViewport() {
   const active = useForgeStore((s) => s.tabs.find((t) => t.active));
   const selectedMissionId = useForgeStore((s) => s.selectedMissionId);
   const settingsOpen = useForgeStore((s) => s.ui.settingsOpen);
+  const searchOpen = useForgeStore((s) => s.ui.searchOpen);
+  const passwordSavePromptOpen = useForgeStore(
+    (s) => s.ui.passwordSavePrompt !== null,
+  );
+  const passwordFillPickerOpen = useForgeStore(
+    (s) => s.ui.passwordFillPickerOpen,
+  );
+  const autofillOfferOpen = useForgeStore((s) => s.ui.autofillOffer !== null);
   const leftOpen = useForgeStore((s) => s.ui.leftRailOpen);
   const rightOpen = useForgeStore((s) => s.ui.rightRailOpen);
 
@@ -36,7 +46,11 @@ export function BrowserViewport() {
   const isArtifact = view === 'artifact';
   const isChrome = isStart || isDashboard || isArtifact;
   const isHome = !isChrome && (!active || active.url === 'forge://home');
-  const dialogOpen = settingsOpen;
+  const dialogOpen =
+    settingsOpen ||
+    searchOpen ||
+    passwordSavePromptOpen ||
+    passwordFillPickerOpen;
   const shouldShowView = !isChrome && !isHome && !dialogOpen;
 
   // Track + report the live rect for the webview to sit behind.
@@ -68,7 +82,7 @@ export function BrowserViewport() {
       ro.disconnect();
       window.removeEventListener('resize', onWin);
     };
-  }, [shouldShowView, active?.id, active?.url, leftOpen, rightOpen]);
+  }, [shouldShowView, active?.id, active?.url, leftOpen, rightOpen, autofillOfferOpen]);
 
   // Visibility: hide the webview entirely when we're on a chrome view;
   // otherwise keep it visible (the rails don't hide, they just shrink the
@@ -81,12 +95,14 @@ export function BrowserViewport() {
     <div className="relative w-full h-full bg-bg">
       <div
         ref={ref}
-        className="absolute top-0 bottom-0"
+        className="absolute top-0"
         style={{
           left: leftOpen ? LEFT_RAIL_W : 0,
           right: rightOpen ? RIGHT_RAIL_W : 0,
+          bottom: autofillOfferOpen ? AUTOFILL_STRIP_H : 0,
         }}
       />
+      {autofillOfferOpen && <AutofillPrompt />}
       {isStart && (
         <div className="absolute inset-0 overflow-auto scroll-area">
           <StartPage />

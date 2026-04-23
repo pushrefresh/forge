@@ -16,11 +16,18 @@ files:
   - package.json
   - '!**/*.map'
 
-# Mac — signed, notarized, universal binary (Intel + Apple Silicon).
+# Mac — signed, notarized, both architectures. DMG is what humans download;
+# the ZIP is what electron-updater pulls to apply auto-updates (it extracts
+# the .app in-place, no disk-image mount required). `latest-mac.yml` is
+# auto-generated and references the ZIP as the update artifact.
 mac:
   category: public.app-category.productivity
   target:
     - target: dmg
+      arch:
+        - arm64
+        - x64
+    - target: zip
       arch:
         - arm64
         - x64

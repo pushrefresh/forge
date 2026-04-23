@@ -94,16 +94,17 @@ export function UpdateToast() {
       {/* Body */}
       <div className="px-4 py-3">
         <p className="font-display text-[15px] font-medium tracking-tight-sm text-fg leading-snug">
-          forge {info.version} is ready to install
+          forge just got sharper
           <span className="text-accent">.</span>
         </p>
         <p className="mt-1.5 text-[12px] text-fg-dim leading-relaxed">
-          your mission state and open tabs are preserved.
+          v{info.version} is ready. your missions, tabs, and logins come
+          with you.
         </p>
 
-        {info.releaseNotes && (
+        {cleanNotes(info.releaseNotes) && (
           <div className="mt-3 max-h-[96px] overflow-auto scroll-area rounded-sm border border-line bg-bg/40 px-3 py-2 font-mono text-[11px] text-fg-dim leading-relaxed whitespace-pre-line">
-            {info.releaseNotes.slice(0, 600)}
+            {cleanNotes(info.releaseNotes)}
           </div>
         )}
 
@@ -141,4 +142,32 @@ function formatSize(bytes: number): string {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
   if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+}
+
+/**
+ * electron-builder auto-generates release notes from the git log, which
+ * leaves raw HTML, entity escapes, co-author trailers, and the bare
+ * version number in there. Strip it down to something readable — and
+ * return an empty string if nothing meaningful is left so the notes
+ * block hides entirely.
+ */
+function cleanNotes(raw: string | null): string {
+  if (!raw) return '';
+  const text = raw
+    .replace(/<[^>]+>/g, '\n')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(
+      (l) =>
+        l.length > 0 &&
+        !/^co-authored-by:/i.test(l) &&
+        !/^\d+\.\d+\.\d+$/.test(l) &&
+        !/^v?\d+\.\d+\.\d+$/.test(l),
+    )
+    .join('\n');
+  return text.slice(0, 600);
 }

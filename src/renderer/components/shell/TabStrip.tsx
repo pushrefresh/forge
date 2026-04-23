@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { Plus, X, Loader2, Globe, LayoutDashboard } from 'lucide-react';
+import { EyeOff, Plus, X, Loader2, Globe, LayoutDashboard } from 'lucide-react';
 import { useForgeStore } from '../../state/store';
 import { ipc } from '../../lib/ipc';
 import { cn } from '../../lib/cn';
@@ -96,6 +96,7 @@ export function TabStrip() {
               'border-r border-line text-left',
               'transition-colors duration-160 ease-precise',
               isActive ? 'bg-bg' : 'hover:bg-surface-2',
+              t.private && 'bg-[color-mix(in_oklab,var(--accent)_6%,transparent)]',
             )}
           >
             <span
@@ -111,9 +112,11 @@ export function TabStrip() {
             <span className="min-w-0 flex-1">
               <span className="flex items-center gap-1.5 mb-0.5">
                 <span className="font-mono text-[9px] uppercase tracking-caps text-fg-mute">
-                  {id}
+                  {t.private ? 'private' : id}
                 </span>
-                {t.loading ? (
+                {t.private ? (
+                  <EyeOff className="h-2.5 w-2.5 text-fg-mute" strokeWidth={1.5} />
+                ) : t.loading ? (
                   <Loader2 className="h-2.5 w-2.5 text-fg-mute animate-spin" strokeWidth={1.5} />
                 ) : t.favicon ? (
                   <img src={t.favicon} alt="" className="h-2.5 w-2.5 rounded-sm opacity-80" />

@@ -28,6 +28,9 @@ export class PasswordManager {
   async snapshotActiveForm(): Promise<SnapshotResult | null> {
     const active = this.tabs.getActive();
     if (!active) return null;
+    // Private tabs opt out of the whole password flow — we never peek at
+    // typed creds, never offer to save, never match against the store.
+    if (active.private) return null;
     const view = this.tabs.getViewFor(active.id);
     if (!view) return null;
 
@@ -72,6 +75,7 @@ export class PasswordManager {
   async fillActive(credentialId: string): Promise<boolean> {
     const active = this.tabs.getActive();
     if (!active) return false;
+    if (active.private) return false;
     const view = this.tabs.getViewFor(active.id);
     if (!view) return false;
 
@@ -94,6 +98,7 @@ export class PasswordManager {
   findForActive(): Credential[] {
     const active = this.tabs.getActive();
     if (!active) return [];
+    if (active.private) return [];
     return PasswordStore.findForOrigin(active.url);
   }
 
@@ -117,9 +122,10 @@ export class PasswordManager {
     if (!parsed) return;
 
     // Only offer when the URL belongs to the currently active tab — avoid
-    // prompting for background tabs that just finished loading.
+    // prompting for background tabs that just finished loading. Private
+    // tabs are opted out entirely.
     const active = this.tabs.getActive();
-    if (!active) return;
+    if (!active || active.private) return;
     const activeView = this.tabs.getViewFor(active.id);
     if (!activeView || activeView.webContents.id !== wc.id) return;
 

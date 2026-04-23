@@ -107,6 +107,13 @@ export interface BrowserTab {
   loading: boolean;
   canGoBack: boolean;
   canGoForward: boolean;
+  /**
+   * Private tab — runs in an ephemeral, non-persisted Chromium session.
+   * No cookies, cache, or storage survive the session. Password save/fill
+   * prompts and autofill detection are disabled on private tabs. Not
+   * restored on next launch.
+   */
+  private: boolean;
   createdAt: ISODateString;
   updatedAt: ISODateString;
 }

@@ -35,6 +35,7 @@ export const TabCreateInput = z.object({
   url: z.string().url().or(z.literal('forge://home')),
   workspaceId: IdSchema.nullable().default(null),
   missionId: IdSchema.nullable().default(null),
+  private: z.boolean().optional(),
 });
 
 export const TabNavigateInput = z.object({

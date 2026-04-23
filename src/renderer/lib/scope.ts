@@ -77,7 +77,9 @@ export async function switchMission(missionId: string | null): Promise<void> {
 }
 
 /** Create a new URL tab in the current mission + activate it in tab view. */
-export async function newTabInScope(): Promise<void> {
+export async function newTabInScope(
+  opts: { private?: boolean } = {},
+): Promise<void> {
   const store = useForgeStore.getState();
   if (!store.selectedMissionId) {
     // No mission selected — nudge the user into picking or creating one.
@@ -88,6 +90,7 @@ export async function newTabInScope(): Promise<void> {
     url: 'forge://home',
     workspaceId: store.selectedWorkspaceId,
     missionId: store.selectedMissionId,
+    private: !!opts.private,
   });
   store.setView('tab');
 }

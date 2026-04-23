@@ -195,6 +195,11 @@ export function AppShell() {
       { combo: 'meta+p', description: 'search', handler: () => setSearch(true) },
       { combo: 'meta+t', description: 'new tab', handler: () => void newTabInScope() },
       {
+        combo: 'meta+shift+n',
+        description: 'new private tab',
+        handler: () => void newTabInScope({ private: true }),
+      },
+      {
         combo: 'meta+shift+e',
         description: 'pick element',
         handler: () => void armPicker(),

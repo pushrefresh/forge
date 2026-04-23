@@ -1,4 +1,4 @@
-import { BrowserWindow, Menu, WebContentsView, clipboard, shell } from 'electron';
+import { BrowserWindow, Menu, WebContentsView, clipboard, session, shell } from 'electron';
 import type { WebContents } from 'electron';
 import { nanoid } from 'nanoid';
 import type { BrowserTab } from '@shared/types';
@@ -79,6 +79,7 @@ export class TabManager {
     url: string;
     workspaceId: string | null;
     missionId: string | null;
+    private?: boolean;
   }): Promise<BrowserTab> {
     const id = nanoid(10);
     const now = new Date().toISOString();
@@ -94,6 +95,7 @@ export class TabManager {
       loading: opts.url !== HOME_URL,
       canGoBack: false,
       canGoForward: false,
+      private: !!opts.private,
       createdAt: now,
       updatedAt: now,
     };
@@ -110,11 +112,21 @@ export class TabManager {
   }
 
   private attachView(tab: BrowserTab): WebContentsView {
+    // Private tabs get a unique ephemeral session — no cache, no shared
+    // cookies with regular browsing. `fromPartition` names starting with
+    // something other than "persist:" stay in-memory for the process
+    // lifetime, so quitting Forge wipes everything.
+    const partition = tab.private
+      ? `private-${tab.id}`
+      : undefined;
     const view = new WebContentsView({
       webPreferences: {
         contextIsolation: true,
         sandbox: true,
         webSecurity: true,
+        ...(partition
+          ? { session: session.fromPartition(partition, { cache: false }) }
+          : {}),
       },
     });
     view.setBackgroundColor('#0A0B0D');
@@ -145,7 +157,10 @@ export class TabManager {
       const intercepts = new Set([
         't', 'w', 'l', 'k', ',', '[', ']', '/', 'e', 'p', 's',
       ]);
-      if (!intercepts.has(key)) return;
+      // ⌘⇧N is our "new private tab" chord; ⌘N alone is left to the app
+      // menu (New Mission…) so we don't steal it from users focused on a page.
+      const isPrivateTabChord = key === 'n' && input.shift;
+      if (!intercepts.has(key) && !isPrivateTabChord) return;
       event.preventDefault();
       const parts: string[] = ['meta'];
       if (input.shift) parts.push('shift');
@@ -208,9 +223,16 @@ export class TabManager {
       }
     });
 
-    // Open new windows as new tabs in the same manager.
+    // Open new windows as new tabs in the same manager. If the opener is
+    // private, inherit privacy so "open in new tab" links don't secretly
+    // leak into the main (persistent) session.
     wc.setWindowOpenHandler(({ url }) => {
-      this.create({ url, missionId: tab.missionId }).catch((err) =>
+      this.create({
+        url,
+        workspaceId: tab.workspaceId,
+        missionId: tab.missionId,
+        private: tab.private,
+      }).catch((err) =>
         log.error('open-handler create failed', { err: String(err) }),
       );
       return { action: 'deny' };

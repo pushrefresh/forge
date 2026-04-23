@@ -101,6 +101,7 @@ export function registerIpc(
       url: input.url,
       workspaceId: input.workspaceId,
       missionId: input.missionId,
+      private: input.private,
     }),
   );
   registerHandler(IPC.TabActivate, TabActionInput, ({ id }) => tabs.activate(id));

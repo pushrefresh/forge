@@ -40,7 +40,7 @@ export interface DbShape {
   };
 }
 
-const DB_VERSION = 5;
+const DB_VERSION = 6;
 
 function nowISO() {
   return new Date().toISOString();
@@ -79,6 +79,18 @@ function migrate(db: DbShape): void {
   // v4 → v5: credentials array for the password manager.
   if (!Array.isArray((db as unknown as { credentials?: unknown }).credentials)) {
     (db as unknown as { credentials: unknown[] }).credentials = [];
+  }
+  // v5 → v6: private flag on BrowserTab. Private tabs never survive a
+  // restart — drop any that made it to disk (e.g. from a crash before we
+  // had a chance to prune), then backfill the flag on everything else.
+  db.tabs = (db.tabs ?? []).filter(
+    (t) =>
+      (t as Partial<import('@shared/types').BrowserTab>).private !== true,
+  );
+  for (const tab of db.tabs) {
+    const t = tab as Partial<import('@shared/types').BrowserTab> &
+      Record<string, unknown>;
+    if (typeof t.private !== 'boolean') t.private = false;
   }
 }
 

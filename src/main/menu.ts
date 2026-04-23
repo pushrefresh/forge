@@ -62,6 +62,11 @@ export function installApplicationMenu(win: BrowserWindow): void {
           click: () => sendCombo('meta+t'),
         },
         {
+          label: 'New Private Tab',
+          accelerator: 'Cmd+Shift+N',
+          click: () => sendCombo('meta+shift+n'),
+        },
+        {
           label: 'New Mission…',
           accelerator: 'Cmd+N',
           click: () => sendCombo('meta+n'),

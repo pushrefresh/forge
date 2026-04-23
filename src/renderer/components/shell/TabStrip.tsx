@@ -168,15 +168,24 @@ export function TabStrip() {
 }
 
 async function onCloseTab(id: string): Promise<void> {
+  const store = useForgeStore.getState();
+  // Optimistically drop the tab from local state so the scope check
+  // below doesn't race with the EvtTabsUpdated push. Main will send
+  // the authoritative list right after and overwrite this.
+  store.setTabs(store.tabs.filter((t) => t.id !== id));
   await ipc().tabs.close(id);
   const scope = currentScope();
-  const remaining = filterTabsForScope(useForgeStore.getState().tabs, scope);
-  const store = useForgeStore.getState();
+  const remaining = filterTabsForScope(
+    useForgeStore.getState().tabs,
+    scope,
+  );
+  const after = useForgeStore.getState();
   if (remaining.length === 0) {
-    // Fall back to the dashboard when the last URL tab is closed.
-    store.setView('dashboard');
+    // Fall back to the dashboard when the last URL tab in this scope is
+    // closed — never surface a tab from another mission.
+    after.setView('dashboard');
   } else if (!remaining.some((t) => t.active)) {
     await ipc().tabs.activate(remaining[0].id);
-    store.setView('tab');
+    after.setView('tab');
   }
 }

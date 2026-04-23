@@ -340,11 +340,13 @@ export class TabManager {
     }
     await TabRepo.remove(id);
 
-    if (this.activeId === id) {
-      this.activeId = null;
-      const remaining = TabRepo.list();
-      if (remaining.length > 0) await this.activate(remaining[0].id);
-    }
+    // If the closed tab was the active one, clear activeId but DON'T
+    // auto-activate something else — TabManager has no notion of
+    // workspace / mission scope, and picking "the next tab" by global
+    // order can surface a tab from an unrelated mission to the user.
+    // The renderer (TabStrip) already has the scoped logic to pick a
+    // sensible successor or fall back to the dashboard.
+    if (this.activeId === id) this.activeId = null;
     this.emit();
   }
 

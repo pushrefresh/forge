@@ -55,6 +55,10 @@ export class TabManager {
   }
 
   private emit(tabs?: BrowserTab[]) {
+    // Async handlers (did-stop-loading etc.) can resolve after the window
+    // has been torn down — `send` on a destroyed webContents throws
+    // "Object has been destroyed" and leaks a crash to Sentry.
+    if (this.win.isDestroyed() || this.win.webContents.isDestroyed()) return;
     const payload = tabs ?? TabRepo.list();
     this.win.webContents.send(IPC.EvtTabsUpdated, payload);
   }

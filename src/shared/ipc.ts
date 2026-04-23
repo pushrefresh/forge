@@ -70,6 +70,11 @@ export const IPC = {
   PickerStart: 'picker:start',
   PickerCancel: 'picker:cancel',
 
+  // Auto-updater
+  UpdaterInstall: 'updater:install',
+  UpdaterDismiss: 'updater:dismiss',
+  UpdaterAck: 'updater:ack',
+
   // Agent
   AgentRunCommand: 'agent:runCommand',
   AgentCancel: 'agent:cancel',
@@ -89,6 +94,7 @@ export const IPC = {
   EvtArtifactsUpdated: 'evt:artifacts',
   EvtToast: 'evt:toast',
   EvtShortcut: 'evt:shortcut',
+  EvtUpdateReady: 'evt:updateReady',
 } as const;
 
 export type IPCChannel = (typeof IPC)[keyof typeof IPC];
@@ -129,6 +135,10 @@ export interface IpcContract {
   [IPC.PickerStart]: { req: { tabId: string }; res: PickedElement | null };
   [IPC.PickerCancel]: { req: void; res: { ok: true } };
 
+  [IPC.UpdaterInstall]: { req: void; res: { ok: true } };
+  [IPC.UpdaterDismiss]: { req: void; res: { ok: true } };
+  [IPC.UpdaterAck]: { req: void; res: { ok: true } };
+
   [IPC.AgentRunCommand]: { req: CommandRunInput; res: CommandRun };
   [IPC.AgentCancel]: { req: { commandRunId: string }; res: { ok: true } };
   [IPC.AgentApprove]: { req: ApprovalDecisionInput; res: AgentAction };
@@ -149,4 +159,12 @@ export interface IpcContract {
     res: { kind: 'info' | 'success' | 'warning' | 'error'; message: string };
   };
   [IPC.EvtShortcut]: { req: void; res: { combo: string } };
+  [IPC.EvtUpdateReady]: {
+    req: void;
+    res: {
+      version: string;
+      releaseNotes: string | null;
+      sizeBytes: number | null;
+    };
+  };
 }

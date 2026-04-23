@@ -46,6 +46,16 @@ export interface UIState {
    * the composer once it's had a chance to read it.
    */
   pendingComposerDraft: string | null;
+  /**
+   * Populated when the auto-updater finishes downloading a new version and
+   * asks the renderer to surface the restart prompt. Null when no update is
+   * waiting or the user dismissed the toast.
+   */
+  updateReady: {
+    version: string;
+    releaseNotes: string | null;
+    sizeBytes: number | null;
+  } | null;
   toast: { kind: 'info' | 'success' | 'warning' | 'error'; message: string } | null;
 }
 
@@ -91,6 +101,9 @@ export interface ForgeStore {
   clearPickedElements(): void;
   setPickerArmed(armed: boolean): void;
   setPendingComposerDraft(text: string | null): void;
+  setUpdateReady(
+    info: { version: string; releaseNotes: string | null; sizeBytes: number | null } | null,
+  ): void;
   toast(kind: 'info' | 'success' | 'warning' | 'error', message: string): void;
   clearToast(): void;
 }
@@ -120,6 +133,7 @@ export const useForgeStore = create<ForgeStore>((set, get) => ({
     pickedElements: [],
     pickerArmed: false,
     pendingComposerDraft: null,
+    updateReady: null,
     toast: null,
   },
 
@@ -218,6 +232,8 @@ export const useForgeStore = create<ForgeStore>((set, get) => ({
         rightRailOpen: text ? true : s.ui.rightRailOpen,
       },
     })),
+  setUpdateReady: (info) =>
+    set((s) => ({ ui: { ...s.ui, updateReady: info } })),
   toast: (kind, message) => set((s) => ({ ui: { ...s.ui, toast: { kind, message } } })),
   clearToast: () => set((s) => ({ ui: { ...s.ui, toast: null } })),
 }));

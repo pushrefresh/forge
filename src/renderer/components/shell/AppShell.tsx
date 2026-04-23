@@ -13,6 +13,7 @@ import { ResultsPanel } from './ResultsPanel';
 import { Settings } from '../settings/Settings';
 import { Welcome } from '../welcome/Welcome';
 import { SearchOverlay } from '../search/SearchOverlay';
+import { UpdateToast } from '../updater/UpdateToast';
 import { Toast } from './Toast';
 import { cn } from '../../lib/cn';
 
@@ -148,6 +149,14 @@ export function AppShell() {
     unsubs.push(ipc().on.approval((a) => upsertAction(a)));
     unsubs.push(ipc().on.artifacts((as) => setArtifacts(as)));
     unsubs.push(ipc().on.toast((t) => toast(t.kind, t.message)));
+    unsubs.push(
+      ipc().on.updateReady((info) => {
+        useForgeStore.getState().setUpdateReady(info);
+        // Tell main we've received + will render the toast — suppresses the
+        // native dialog fallback.
+        void ipc().updater.ack();
+      }),
+    );
     return () => unsubs.forEach((u) => u());
   }, [setTabs, setWorkspaces, setMissions, upsertCommand, upsertAction, setArtifacts, toast]);
 
@@ -270,6 +279,7 @@ export function AppShell() {
 
       <Settings />
       <SearchOverlay />
+      <UpdateToast />
       <Toast />
     </div>
   );

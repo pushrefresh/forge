@@ -90,6 +90,12 @@ const api = {
     cancel: () => invoke(IPC.PickerCancel),
   },
 
+  updater: {
+    ack: () => invoke(IPC.UpdaterAck),
+    install: () => invoke(IPC.UpdaterInstall),
+    dismiss: () => invoke(IPC.UpdaterDismiss),
+  },
+
   agent: {
     run: (input: Req<typeof IPC.AgentRunCommand>) => invoke(IPC.AgentRunCommand, input),
     cancel: (commandRunId: string) => invoke(IPC.AgentCancel, { commandRunId }),
@@ -118,6 +124,8 @@ const api = {
       subscribe(IPC.EvtArtifactsUpdated, cb),
     toast: (cb: Listener<typeof IPC.EvtToast>) => subscribe(IPC.EvtToast, cb),
     shortcut: (cb: Listener<typeof IPC.EvtShortcut>) => subscribe(IPC.EvtShortcut, cb),
+    updateReady: (cb: Listener<typeof IPC.EvtUpdateReady>) =>
+      subscribe(IPC.EvtUpdateReady, cb),
   },
 };
 

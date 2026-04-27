@@ -10,7 +10,7 @@ import type {
   Workspace,
 } from '@shared/types';
 
-export type ViewMode = 'start' | 'dashboard' | 'tab' | 'artifact';
+export type ViewMode = 'landing' | 'dashboard' | 'tab' | 'artifact';
 
 export interface UIState {
   settingsOpen: boolean;
@@ -66,6 +66,20 @@ export interface UIState {
   /** When truthy, the Fill-login picker overlay is shown for the active tab. */
   passwordFillPickerOpen: boolean;
   /**
+   * Frozen webview capture for chrome-level overlays (tab switcher, mission
+   * switcher, etc.). When set, BrowserViewport hides the native WebContents
+   * and renders this data URL in its place — so an HTML dropdown can
+   * overlay the "page" without the native layer clipping it. Cleared when
+   * the overlay closes.
+   */
+  chromeFreeze: { dataUrl: string } | null;
+  /**
+   * Toggles the inline "create a workspace" form in the Mission Control /
+   * empty WorkspaceDashboard. Both the dashboard's own CTA and the Chrome
+   * right-slot "New Workspace" button flip this on so they share one form.
+   */
+  workspaceCreateOpen: boolean;
+  /**
    * Inline "fill login as foo@bar.com?" prompt. Populated by the main
    * process after a saved-credential host's login form is detected on the
    * active tab. Single-cred case only — multi-cred goes straight to the
@@ -77,6 +91,13 @@ export interface UIState {
     credentialId: string;
     username: string;
   } | null;
+  /**
+   * A site is asking for a sensitive capability (geolocation, camera,
+   * mic, notifications, …). Shown as an in-viewport banner anchored
+   * near the top of the tab until the user picks Allow/Block or the
+   * tab navigates.
+   */
+  permissionPrompt: import('@shared/types').PermissionPromptState | null;
   /**
    * Set of URLs we've already offered autofill for in this session. Prevents
    * re-prompting on reload or when the user has already dismissed. Cleared
@@ -135,6 +156,8 @@ export interface ForgeStore {
     prompt: { url: string; host: string; username: string; password: string } | null,
   ): void;
   setPasswordFillPickerOpen(open: boolean): void;
+  setChromeFreeze(cap: { dataUrl: string } | null): void;
+  setWorkspaceCreateOpen(open: boolean): void;
   setAutofillOffer(
     offer: {
       url: string;
@@ -144,6 +167,9 @@ export interface ForgeStore {
     } | null,
   ): void;
   dismissAutofillOffer(): void;
+  setPermissionPrompt(
+    prompt: import('@shared/types').PermissionPromptState | null,
+  ): void;
   toast(kind: 'info' | 'success' | 'warning' | 'error', message: string): void;
   clearToast(): void;
 }
@@ -176,8 +202,11 @@ export const useForgeStore = create<ForgeStore>((set, get) => ({
     updateReady: null,
     passwordSavePrompt: null,
     passwordFillPickerOpen: false,
+    chromeFreeze: null,
+    workspaceCreateOpen: false,
     autofillOffer: null,
     autofillOfferedUrls: new Set<string>(),
+    permissionPrompt: null,
     toast: null,
   },
 
@@ -185,6 +214,14 @@ export const useForgeStore = create<ForgeStore>((set, get) => ({
   setPreferences: (p) => set({ preferences: p }),
   setWorkspaces: (ws) => {
     const { selectedWorkspaceId } = get();
+    // A null selection is deliberate — user is at landing or MC. Don't
+    // auto-pick a workspace on list updates; only fall back to the first
+    // workspace if the previously-selected one was deleted out from
+    // under us.
+    if (selectedWorkspaceId === null) {
+      set({ workspaces: ws });
+      return;
+    }
     const stillThere = ws.some((w) => w.id === selectedWorkspaceId);
     set({
       workspaces: ws,
@@ -282,6 +319,10 @@ export const useForgeStore = create<ForgeStore>((set, get) => ({
     set((s) => ({ ui: { ...s.ui, passwordSavePrompt: prompt } })),
   setPasswordFillPickerOpen: (open) =>
     set((s) => ({ ui: { ...s.ui, passwordFillPickerOpen: open } })),
+  setChromeFreeze: (cap) =>
+    set((s) => ({ ui: { ...s.ui, chromeFreeze: cap } })),
+  setWorkspaceCreateOpen: (open) =>
+    set((s) => ({ ui: { ...s.ui, workspaceCreateOpen: open } })),
   setAutofillOffer: (offer) =>
     set((s) => ({ ui: { ...s.ui, autofillOffer: offer } })),
   dismissAutofillOffer: () =>
@@ -296,6 +337,8 @@ export const useForgeStore = create<ForgeStore>((set, get) => ({
         },
       };
     }),
+  setPermissionPrompt: (prompt) =>
+    set((s) => ({ ui: { ...s.ui, permissionPrompt: prompt } })),
   toast: (kind, message) => set((s) => ({ ui: { ...s.ui, toast: { kind, message } } })),
   clearToast: () => set((s) => ({ ui: { ...s.ui, toast: null } })),
 }));

@@ -1,13 +1,20 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Search, CornerDownLeft } from 'lucide-react';
 import { useForgeStore } from '../../state/store';
 import { ipc } from '../../lib/ipc';
 import { Kbd } from '../ui/Kbd';
+import {
+  AddressSuggestPopover,
+  handleSuggestKeyDown,
+  resolveSuggestItem,
+  useAddressSuggestions,
+} from '../shell/AddressSuggest';
 
 export function NewTabHome() {
   const [q, setQ] = useState('');
   const [focused, setFocused] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const formRef = useRef<HTMLFormElement | null>(null);
   const active = useForgeStore((s) => s.tabs.find((t) => t.active));
   const mission = useForgeStore((s) =>
     s.missions.find((m) => m.id === s.selectedMissionId),
@@ -16,12 +23,54 @@ export function NewTabHome() {
     s.workspaces.find((w) => w.id === s.selectedWorkspaceId),
   );
 
+  const query = q.trim();
+  const open = focused && query.length > 0;
+  const { items, selectedIdx, setSelectedIdx } = useAddressSuggestions(
+    query,
+    open,
+  );
+
+  async function navigate(target: string) {
+    const url = target.trim();
+    if (!url || !active) return;
+    setFocused(false);
+    inputRef.current?.blur();
+    await ipc().tabs.navigate(active.id, url);
+  }
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!active) return;
-    if (!q.trim()) return;
-    await ipc().tabs.navigate(active.id, q.trim());
+    if (selectedIdx >= 0 && items[selectedIdx]) {
+      await navigate(resolveSuggestItem(items[selectedIdx]));
+      return;
+    }
+    if (!query) return;
+    await navigate(query);
   }
+
+  function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (!open) return;
+    handleSuggestKeyDown(e, {
+      items,
+      setSelectedIdx,
+      onClose: () => {
+        setFocused(false);
+        inputRef.current?.blur();
+      },
+    });
+  }
+
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (formRef.current?.contains(target)) return;
+      if (target.closest('[data-address-suggest]')) return;
+      setFocused(false);
+    };
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, [open]);
 
   const scopeLabel = mission
     ? mission.title
@@ -86,7 +135,7 @@ export function NewTabHome() {
         </div>
 
         {/* URL / search — the one job this page has */}
-        <form onSubmit={onSubmit}>
+        <form ref={formRef} onSubmit={onSubmit} className="relative">
           <label
             className="group relative grid items-center gap-3 h-14 px-5 bg-surface-1 border border-line rounded-md focus-within:border-accent focus-within:shadow-focus transition-[border-color,box-shadow,background-color] duration-160 ease-precise hover:bg-surface-2/40"
             style={{ gridTemplateColumns: 'auto 1fr auto' }}
@@ -104,9 +153,10 @@ export function NewTabHome() {
               value={q}
               onChange={(e) => setQ(e.target.value)}
               onFocus={() => setFocused(true)}
-              onBlur={() => setFocused(false)}
+              onKeyDown={onKeyDown}
               placeholder="search, or paste a url…"
               spellCheck={false}
+              autoComplete="off"
               className="bg-transparent outline-none font-sans text-[15px] tracking-tight-sm text-fg placeholder:text-fg-mute placeholder:font-mono placeholder:text-[13px] placeholder:tracking-caps placeholder:uppercase"
             />
 
@@ -134,6 +184,16 @@ export function NewTabHome() {
               }}
             />
           </label>
+          {open && items.length > 0 && (
+            <AddressSuggestPopover
+              items={items}
+              query={query}
+              selectedIdx={selectedIdx}
+              onHover={setSelectedIdx}
+              onPick={(item) => void navigate(resolveSuggestItem(item))}
+              className="absolute top-full left-0 right-0 mt-2"
+            />
+          )}
         </form>
 
         {/* Keyboard hints — thin footer, more structured */}

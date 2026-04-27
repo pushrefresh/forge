@@ -2,13 +2,12 @@ import { useEffect } from 'react';
 import { useForgeStore } from '../../state/store';
 import { ipc } from '../../lib/ipc';
 import { bindShortcuts } from '../../lib/shortcuts';
-import { newTabInScope } from '../../lib/scope';
+import { closeTabAndAdvance, newTabInScope } from '../../lib/scope';
 import { armPicker } from '../../lib/picker';
-import { TitleBar } from './TitleBar';
+import { Chrome } from './Chrome';
 import { Sidebar } from './Sidebar';
-import { TopBar } from './TopBar';
-import { TabStrip } from './TabStrip';
 import { BrowserViewport } from './BrowserViewport';
+import landingBg from '../../assets/landing-bg.png';
 import { ResultsPanel } from './ResultsPanel';
 import { Settings } from '../settings/Settings';
 import { Welcome } from '../welcome/Welcome';
@@ -82,22 +81,14 @@ export function AppShell() {
         snap.actions.forEach(upsertAction);
         setArtifacts(snap.artifacts);
 
-        if (snap.workspaces.length === 0) {
-          const ws = await ipc().workspaces.create({
-            name: 'Personal',
-            icon: 'forge',
-            color: '#4A505B',
-          });
-          useForgeStore.getState().selectWorkspace(ws.id);
-        } else {
-          // Crash recovery: restore the last workspace + mission if we had
-          // them, and they still exist. Otherwise pick the first workspace.
-          const lastWs = snap.preferences.lastSelectedWorkspaceId;
-          const lastMission = snap.preferences.lastSelectedMissionId;
-          const restoredWs =
-            lastWs && snap.workspaces.some((w) => w.id === lastWs)
-              ? lastWs
-              : snap.workspaces[0].id;
+        // No auto-seed — a fresh user lands on Mission Control with zero
+        // workspaces and is guided through the create form. We only
+        // restore a previously-selected workspace if it still exists.
+        const lastWs = snap.preferences.lastSelectedWorkspaceId;
+        const lastMission = snap.preferences.lastSelectedMissionId;
+        const restoredWs =
+          lastWs && snap.workspaces.some((w) => w.id === lastWs) ? lastWs : null;
+        if (restoredWs) {
           useForgeStore.getState().selectWorkspace(restoredWs);
           if (
             lastMission &&
@@ -109,16 +100,13 @@ export function AppShell() {
           }
         }
 
-        // Restore last view if it's safe; otherwise start page. A tab view
-        // only makes sense if tabs were restored from the DB.
-        const lastView = snap.preferences.lastView;
+        // The landing page is the entry point for every session. The only
+        // exception: if the user was mid-browse on a tab that still exists,
+        // drop them back into the tab view so they don't lose context.
+        const rawLastView = snap.preferences.lastView as string | null;
         const hasTabs = snap.tabs.length > 0;
         const safeView =
-          lastView === 'tab' && !hasTabs
-            ? 'start'
-            : lastView && ['start', 'dashboard', 'tab', 'artifact'].includes(lastView)
-              ? lastView
-              : 'start';
+          rawLastView === 'tab' && hasTabs ? 'tab' : 'landing';
         useForgeStore.getState().setView(safeView);
         setReady(true);
       } catch (err) {
@@ -180,6 +168,11 @@ export function AppShell() {
           // Multiple saved logins — defer to the full picker.
           store.setPasswordFillPickerOpen(true);
         }
+      }),
+    );
+    unsubs.push(
+      ipc().on.permissionPrompt((prompt) => {
+        useForgeStore.getState().setPermissionPrompt(prompt);
       }),
     );
     return () => unsubs.forEach((u) => u());
@@ -257,7 +250,7 @@ export function AppShell() {
         description: 'close tab',
         handler: () => {
           const active = useForgeStore.getState().tabs.find((t) => t.active);
-          if (active) ipc().tabs.close(active.id);
+          if (active) void closeTabAndAdvance(active.id);
         },
       },
       {
@@ -267,7 +260,7 @@ export function AppShell() {
           const inputs = Array.from(
             document.querySelectorAll<HTMLInputElement>('input[spellcheck="false"]'),
           );
-          const addr = inputs.find((i) => i.placeholder.includes('url'));
+          const addr = inputs.find((i) => i.placeholder.includes('http'));
           addr?.focus();
           addr?.select();
         },
@@ -287,7 +280,6 @@ export function AppShell() {
   if (needsOnboarding) {
     return (
       <div className="h-full w-full flex flex-col bg-bg text-fg">
-        <TitleBar />
         <div className="flex-1 min-h-0 relative">
           <Welcome />
         </div>
@@ -298,12 +290,11 @@ export function AppShell() {
   }
 
   return (
-    <div className="h-full w-full flex flex-col bg-bg text-fg">
-      <TitleBar />
+    <div className="relative h-full w-full flex flex-col bg-bg text-fg">
+      {currentView === 'landing' && <LandingBackdrop />}
+      <Chrome />
 
-      <div className="flex-1 flex flex-col min-h-0">
-        <TabStrip />
-        <TopBar />
+      <div className="relative z-10 flex-1 flex flex-col min-h-0">
 
         <div className="flex-1 relative min-h-0 overflow-hidden">
           {/* Webview / dashboard fills the full area. Rails overlay on top. */}
@@ -325,19 +316,23 @@ export function AppShell() {
             <Sidebar />
           </div>
 
-          {/* Right rail — full-height chat sidebar, mirrors the left rail. */}
-          <div
-            className={cn(
-              'absolute right-0 top-0 bottom-0 z-20 shadow-2 border-l border-line',
-              'transition-transform duration-220 ease-precise',
-            )}
-            style={{
-              width: RIGHT_RAIL_W,
-              transform: rightOpen ? 'translateX(0)' : `translateX(${RIGHT_RAIL_W}px)`,
-            }}
-          >
-            <ResultsPanel />
-          </div>
+          {/* Right rail — only shown in tab view. Mission dashboard has
+              its own centered chat layout, so the floating rail would be
+              redundant and visually competing there. */}
+          {currentView === 'tab' && (
+            <div
+              className={cn(
+                'absolute right-0 top-0 bottom-0 z-20 shadow-2 border-l border-line',
+                'transition-transform duration-220 ease-precise',
+              )}
+              style={{
+                width: RIGHT_RAIL_W,
+                transform: rightOpen ? 'translateX(0)' : `translateX(${RIGHT_RAIL_W}px)`,
+              }}
+            >
+              <ResultsPanel />
+            </div>
+          )}
         </div>
       </div>
 
@@ -347,6 +342,28 @@ export function AppShell() {
       <SaveLoginModal />
       <FillPicker />
       <Toast />
+    </div>
+  );
+}
+
+function LandingBackdrop() {
+  return (
+    <div
+      aria-hidden="true"
+      className="absolute inset-0 z-0 pointer-events-none overflow-hidden"
+    >
+      <img
+        src={landingBg}
+        alt=""
+        className="absolute inset-0 w-full h-full object-cover"
+      />
+      <div
+        className="absolute inset-0"
+        style={{
+          background:
+            'linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,0.25) 45%, rgba(0,0,0,0.85) 100%)',
+        }}
+      />
     </div>
   );
 }

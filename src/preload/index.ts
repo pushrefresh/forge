@@ -81,6 +81,11 @@ const api = {
     focus: (target: 'chrome' | 'tab') => invoke(IPC.ViewFocus, { target }),
   },
 
+  chrome: {
+    menu: (input: Req<typeof IPC.ChromeMenuShow>) =>
+      invoke(IPC.ChromeMenuShow, input),
+  },
+
   page: {
     snapshot: (id: string) => invoke(IPC.PageSnapshot, { id }),
     snapshotAll: () => invoke(IPC.PageSnapshotAllTabs),
@@ -119,6 +124,23 @@ const api = {
     list: (missionId?: string) => invoke(IPC.ArtifactList, { missionId }),
   },
 
+  history: {
+    search: (query: string, limit?: number) =>
+      invoke(IPC.HistorySearch, { query, limit }),
+    clear: () => invoke(IPC.HistoryClear),
+  },
+
+  suggest: {
+    web: (query: string) => invoke(IPC.SuggestWeb, { query }),
+  },
+
+  permissions: {
+    respond: (input: Req<typeof IPC.PermissionRespond>) =>
+      invoke(IPC.PermissionRespond, input),
+    list: () => invoke(IPC.PermissionList),
+    forget: (id: string) => invoke(IPC.PermissionForget, { id }),
+  },
+
   /* --- push events --- */
   on: {
     tabs: (cb: Listener<typeof IPC.EvtTabsUpdated>) => subscribe(IPC.EvtTabsUpdated, cb),
@@ -139,6 +161,8 @@ const api = {
       subscribe(IPC.EvtUpdateReady, cb),
     autofillOffer: (cb: Listener<typeof IPC.EvtAutofillOffer>) =>
       subscribe(IPC.EvtAutofillOffer, cb),
+    permissionPrompt: (cb: Listener<typeof IPC.EvtPermissionPrompt>) =>
+      subscribe(IPC.EvtPermissionPrompt, cb),
   },
 };
 

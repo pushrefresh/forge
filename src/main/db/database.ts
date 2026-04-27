@@ -12,8 +12,10 @@ import type {
   BrowserTab,
   CommandRun,
   ExtractionResult,
+  HistoryEntry,
   Mission,
   SavedArtifact,
+  SitePermission,
   UserPreferences,
   Workspace,
 } from '@shared/types';
@@ -32,6 +34,8 @@ export interface DbShape {
   actions: AgentAction[];
   artifacts: SavedArtifact[];
   extractions: ExtractionResult[];
+  history: HistoryEntry[];
+  sitePermissions: SitePermission[];
   credentials: StoredCredential[];
   secrets: {
     anthropicApiKey?: string;
@@ -40,7 +44,7 @@ export interface DbShape {
   };
 }
 
-const DB_VERSION = 6;
+const DB_VERSION = 8;
 
 function nowISO() {
   return new Date().toISOString();
@@ -91,6 +95,18 @@ function migrate(db: DbShape): void {
     const t = tab as Partial<import('@shared/types').BrowserTab> &
       Record<string, unknown>;
     if (typeof t.private !== 'boolean') t.private = false;
+  }
+  // v6 → v7: address-bar history.
+  if (!Array.isArray((db as unknown as { history?: unknown }).history)) {
+    (db as unknown as { history: unknown[] }).history = [];
+  }
+  // v7 → v8: saved site permissions.
+  if (
+    !Array.isArray(
+      (db as unknown as { sitePermissions?: unknown }).sitePermissions,
+    )
+  ) {
+    (db as unknown as { sitePermissions: unknown[] }).sitePermissions = [];
   }
 }
 
@@ -148,6 +164,8 @@ function defaultDb(): DbShape {
     actions: [],
     artifacts: [],
     extractions: [],
+    history: [],
+    sitePermissions: [],
     credentials: [],
     secrets: {
       ...(envAnthropic ? { anthropicApiKey: envAnthropic } : {}),

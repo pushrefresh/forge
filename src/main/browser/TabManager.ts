@@ -1,8 +1,9 @@
 import { BrowserWindow, Menu, WebContentsView, clipboard, session, shell } from 'electron';
-import type { WebContents } from 'electron';
+import type { Session, WebContents } from 'electron';
 import { nanoid } from 'nanoid';
 import type { BrowserTab } from '@shared/types';
 import { TabRepo } from '../db/repositories/tabs';
+import { HistoryRepo } from '../db/repositories/history';
 import { createLogger } from '../utils/logger';
 import { IPC } from '@shared/ipc';
 
@@ -35,6 +36,7 @@ export class TabManager {
   private pageReadyCb:
     | ((wc: WebContents, url: string) => void)
     | null = null;
+  private sessionCreatedCb: ((s: Session) => void) | null = null;
 
   /**
    * Register a listener that fires whenever a tab finishes loading or does
@@ -43,6 +45,16 @@ export class TabManager {
    */
   setOnPageReady(cb: (wc: WebContents, url: string) => void): void {
     this.pageReadyCb = cb;
+  }
+
+  /**
+   * Called once per private-tab session (fresh ephemeral partition) so the
+   * caller can attach permission + security handlers. Not called for
+   * regular tabs — those share `session.defaultSession`, which the app
+   * init wires up exactly once at startup.
+   */
+  setOnSessionCreated(cb: (s: Session) => void): void {
+    this.sessionCreatedCb = cb;
   }
 
   constructor(private readonly win: BrowserWindow) {
@@ -123,17 +135,27 @@ export class TabManager {
     const partition = tab.private
       ? `private-${tab.id}`
       : undefined;
+    const partitionSession = partition
+      ? session.fromPartition(partition, { cache: false })
+      : null;
+    if (partitionSession) {
+      try {
+        this.sessionCreatedCb?.(partitionSession);
+      } catch (err) {
+        log.warn('sessionCreatedCb threw', { err: String(err) });
+      }
+    }
     const view = new WebContentsView({
       webPreferences: {
         contextIsolation: true,
         sandbox: true,
         webSecurity: true,
-        ...(partition
-          ? { session: session.fromPartition(partition, { cache: false }) }
-          : {}),
+        ...(partitionSession ? { session: partitionSession } : {}),
       },
     });
-    view.setBackgroundColor('#0A0B0D');
+    // Soft warm gray, matches --bg so a fresh tab doesn't flash a dark
+    // frame before the page paints.
+    view.setBackgroundColor('#f1f1f1');
 
     const wc = view.webContents;
 
@@ -199,6 +221,12 @@ export class TabManager {
     });
     wc.on('page-title-updated', async (_e, title) => {
       await TabRepo.patch(tab.id, { title });
+      // Refine whatever we stamped into history on did-navigate with the
+      // real page title — don't record for private tabs.
+      if (!tab.private) {
+        const url = wc.getURL();
+        if (url) void HistoryRepo.updateTitle(url, title);
+      }
       this.emit();
     });
     wc.on('page-favicon-updated', async (_e, favicons) => {
@@ -211,6 +239,15 @@ export class TabManager {
         canGoBack: wc.navigationHistory.canGoBack(),
         canGoForward: wc.navigationHistory.canGoForward(),
       });
+      // Stamp into history as soon as we commit the navigation — the title
+      // may still be empty, page-title-updated will refine it.
+      if (!tab.private) {
+        const current = TabRepo.get(tab.id);
+        void HistoryRepo.record({
+          url,
+          title: current?.title ?? '',
+        });
+      }
       this.emit();
     });
     wc.on('did-navigate-in-page', async (_e, url) => {

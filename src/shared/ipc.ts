@@ -7,11 +7,16 @@ import type {
   BrowserTab,
   CommandRun,
   Credential,
+  HistoryEntry,
   Mission,
   PageSnapshot,
+  PermissionDecision,
+  PermissionPromptState,
   PickedElement,
   SavedArtifact,
+  SitePermission,
   UserPreferences,
+  WebSuggestion,
   Workspace,
 } from './types';
 import type {
@@ -64,6 +69,10 @@ export const IPC = {
   ViewCapture: 'view:capture',
   ViewFocus: 'view:focus',
 
+  // Chrome menus (tabs/mission switcher). Native macOS popup menus so
+  // they can overlay the WebContentsView without shrinking or hiding it.
+  ChromeMenuShow: 'chrome:menuShow',
+
   // Page intelligence
   PageSnapshot: 'page:snapshot',
   PageSnapshotAllTabs: 'page:snapshotAllTabs',
@@ -94,6 +103,16 @@ export const IPC = {
   ArtifactSave: 'artifact:save',
   ArtifactList: 'artifact:list',
 
+  // Address-bar history + web search suggestions
+  HistorySearch: 'history:search',
+  HistoryClear: 'history:clear',
+  SuggestWeb: 'suggest:web',
+
+  // Site permissions (geolocation, camera, mic, notifications, …)
+  PermissionRespond: 'permission:respond',
+  PermissionList: 'permission:list',
+  PermissionForget: 'permission:forget',
+
   // Events pushed from main → renderer
   EvtTabsUpdated: 'evt:tabs',
   EvtWorkspacesUpdated: 'evt:workspaces',
@@ -106,6 +125,7 @@ export const IPC = {
   EvtShortcut: 'evt:shortcut',
   EvtUpdateReady: 'evt:updateReady',
   EvtAutofillOffer: 'evt:autofillOffer',
+  EvtPermissionPrompt: 'evt:permissionPrompt',
 } as const;
 
 export type IPCChannel = (typeof IPC)[keyof typeof IPC];
@@ -140,6 +160,19 @@ export interface IpcContract {
   [IPC.ViewSetVisible]: { req: { visible: boolean }; res: { ok: true } };
   [IPC.ViewCapture]: { req: void; res: { dataUrl: string | null } };
   [IPC.ViewFocus]: { req: { target: 'chrome' | 'tab' }; res: { ok: true } };
+  [IPC.ChromeMenuShow]: {
+    req: {
+      at: { x: number; y: number };
+      items: Array<{
+        id: string;
+        label: string;
+        checked?: boolean;
+        submenu?: Array<{ id: string; label: string }>;
+      }>;
+      footer?: { id: string; label: string };
+    };
+    res: { pickedId: string | null };
+  };
 
   [IPC.PageSnapshot]: { req: TabActionInput; res: PageSnapshot };
   [IPC.PageSnapshotAllTabs]: { req: void; res: PageSnapshot[] };
@@ -178,6 +211,20 @@ export interface IpcContract {
   [IPC.ArtifactSave]: { req: SaveArtifactInput; res: SavedArtifact };
   [IPC.ArtifactList]: { req: { missionId?: string }; res: SavedArtifact[] };
 
+  [IPC.HistorySearch]: {
+    req: { query: string; limit?: number };
+    res: HistoryEntry[];
+  };
+  [IPC.HistoryClear]: { req: void; res: { ok: true } };
+  [IPC.SuggestWeb]: { req: { query: string }; res: WebSuggestion[] };
+
+  [IPC.PermissionRespond]: {
+    req: { promptId: string; decision: PermissionDecision; remember: boolean };
+    res: { ok: true };
+  };
+  [IPC.PermissionList]: { req: void; res: SitePermission[] };
+  [IPC.PermissionForget]: { req: { id: string }; res: { ok: true } };
+
   // Events (fire-and-forget, main → renderer)
   [IPC.EvtTabsUpdated]: { req: void; res: BrowserTab[] };
   [IPC.EvtWorkspacesUpdated]: { req: void; res: Workspace[] };
@@ -207,4 +254,6 @@ export interface IpcContract {
       credentials: Array<{ id: string; username: string }>;
     };
   };
+
+  [IPC.EvtPermissionPrompt]: { req: void; res: PermissionPromptState | null };
 }

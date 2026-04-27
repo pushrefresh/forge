@@ -8,12 +8,19 @@ import { getDb } from '../database';
 
 const DEFAULT_COLORS = ['#7C5CFF', '#3DA9FC', '#F5B849', '#4ADE80', '#F2555A'];
 
+// Older workspaces written before the status field existed get defaulted
+// to 'active' on read so the renderer doesn't see `undefined`.
+function hydrate(w: Workspace): Workspace {
+  return { ...w, status: w.status ?? 'active' };
+}
+
 export const WorkspaceRepo = {
   list(): Workspace[] {
-    return getDb().read().workspaces.slice();
+    return getDb().read().workspaces.map(hydrate);
   },
   get(id: string): Workspace | null {
-    return getDb().read().workspaces.find((w) => w.id === id) ?? null;
+    const w = getDb().read().workspaces.find((w) => w.id === id);
+    return w ? hydrate(w) : null;
   },
   async create(input: WorkspaceCreateInput): Promise<Workspace> {
     const now = new Date().toISOString();
@@ -24,6 +31,7 @@ export const WorkspaceRepo = {
       name: input.name,
       icon: input.icon || 'Sparkles',
       color,
+      status: 'active',
       createdAt: now,
       updatedAt: now,
     };
@@ -38,10 +46,11 @@ export const WorkspaceRepo = {
       const idx = d.workspaces.findIndex((w) => w.id === input.id);
       if (idx === -1) throw new Error(`workspace ${input.id} not found`);
       const next: Workspace = {
-        ...d.workspaces[idx],
+        ...hydrate(d.workspaces[idx]),
         ...('name' in input && input.name !== undefined ? { name: input.name } : {}),
         ...('icon' in input && input.icon !== undefined ? { icon: input.icon } : {}),
         ...('color' in input && input.color !== undefined ? { color: input.color } : {}),
+        ...('status' in input && input.status !== undefined ? { status: input.status } : {}),
         updatedAt: new Date().toISOString(),
       };
       d.workspaces[idx] = next;

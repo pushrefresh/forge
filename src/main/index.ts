@@ -1,9 +1,18 @@
-import { app, BrowserWindow, protocol } from 'electron';
+import { app, BrowserWindow, protocol, session } from 'electron';
 import { loadDotenv } from './utils/envLoader';
 import { createMainWindow } from './windows/mainWindow';
 
 // Load .env and .env.local before anything else touches process.env.
+// Important: must run BEFORE the block below that hoists GOOGLE_API_KEY,
+// since Chromium reads that env var during `app.whenReady()` to enable
+// the geolocation service.
 loadDotenv();
+
+// Chromium's geolocation service requires a Google API key to resolve
+// precise location. Without one, `navigator.geolocation` still works
+// on macOS via the OS fallback (coarse), but fails on Windows/Linux.
+// If the dev set GOOGLE_API_KEY in .env, Chromium picks it up from
+// process.env automatically — no explicit wiring needed.
 
 // Initialize telemetry as early as possible — BEFORE any of our code that
 // might crash, so the very first error is captured. No-ops without a DSN.
@@ -13,6 +22,7 @@ import { TabManager } from './browser/TabManager';
 import { SiteCrawler } from './browser/SiteCrawler';
 import { Picker } from './browser/picker';
 import { PasswordManager } from './passwords/PasswordManager';
+import { PermissionManager } from './security/PermissionManager';
 import { initUpdater } from './updater';
 import { installApplicationMenu } from './menu';
 import { registerIpc } from './ipc';
@@ -68,9 +78,15 @@ app.whenReady().then(() => {
   const picker = new Picker(tabs);
   const passwords = new PasswordManager(tabs);
   passwords.attachAutofillDetection(win);
+  const permissions = new PermissionManager(win, tabs);
+  // Regular tabs share session.defaultSession; wire once.
+  permissions.attach(session.defaultSession);
+  // Private tabs get their own ephemeral partition each — TabManager
+  // calls back here when one is spun up so permissions gate those too.
+  tabs.setOnSessionCreated((s) => permissions.attach(s));
   const agent = new Agent(win, tabs, crawler, () => buildProvider());
 
-  registerIpc(win, tabs, agent, picker, passwords);
+  registerIpc(win, tabs, agent, picker, passwords, permissions);
   installApplicationMenu(win);
   initUpdater(win);
   log.info('forge booted', { provider: PreferencesRepo.get().provider });

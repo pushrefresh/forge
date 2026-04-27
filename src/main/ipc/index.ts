@@ -1,4 +1,4 @@
-import type { BrowserWindow } from 'electron';
+import { Menu, type BrowserWindow } from 'electron';
 import { z } from 'zod';
 import { IPC } from '@shared/ipc';
 import {
@@ -22,9 +22,13 @@ import { MissionRepo } from '../db/repositories/missions';
 import { TabRepo } from '../db/repositories/tabs';
 import { PreferencesRepo } from '../db/repositories/preferences';
 import { ArtifactRepo } from '../db/repositories/artifacts';
+import { HistoryRepo } from '../db/repositories/history';
+import { SitePermissionsRepo } from '../db/repositories/sitePermissions';
+import { fetchWebSuggestions } from '../browser/suggest';
 import type { TabManager } from '../browser/TabManager';
 import type { Picker } from '../browser/picker';
 import type { PasswordManager } from '../passwords/PasswordManager';
+import type { PermissionManager } from '../security/PermissionManager';
 import { PasswordStore } from '../passwords/store';
 import { extractSnapshot } from '../page/extractor';
 import type { Agent } from '../agent/Agent';
@@ -35,6 +39,7 @@ export function registerIpc(
   agent: Agent,
   picker: Picker,
   passwords: PasswordManager,
+  permissions: PermissionManager,
 ): void {
   // System
   registerHandler(IPC.AppGetSnapshot, null, () => getDb().snapshot());
@@ -147,6 +152,69 @@ export function registerIpc(
     },
   );
 
+  registerHandler(
+    IPC.ChromeMenuShow,
+    z.object({
+      at: z.object({ x: z.number(), y: z.number() }),
+      items: z.array(
+        z.object({
+          id: z.string(),
+          label: z.string(),
+          checked: z.boolean().optional(),
+          submenu: z
+            .array(z.object({ id: z.string(), label: z.string() }))
+            .optional(),
+        }),
+      ),
+      footer: z
+        .object({ id: z.string(), label: z.string() })
+        .optional(),
+    }),
+    ({ at, items, footer }) =>
+      new Promise<{ pickedId: string | null }>((resolve) => {
+        let picked: string | null = null;
+        const template: Electron.MenuItemConstructorOptions[] = items.map(
+          (i) => {
+            if (i.submenu) {
+              return {
+                label: i.label,
+                submenu: i.submenu.map((sub) => ({
+                  label: sub.label,
+                  click: () => {
+                    picked = sub.id;
+                  },
+                })),
+              };
+            }
+            return {
+              label: i.label,
+              type: i.checked ? 'checkbox' : 'normal',
+              checked: i.checked,
+              click: () => {
+                picked = i.id;
+              },
+            };
+          },
+        );
+        if (footer) {
+          template.push({ type: 'separator' });
+          template.push({
+            label: footer.label,
+            click: () => {
+              picked = footer.id;
+            },
+          });
+        }
+        const menu = Menu.buildFromTemplate(template);
+        menu.popup({
+          window: win,
+          x: Math.round(at.x),
+          y: Math.round(at.y),
+          callback: () => resolve({ pickedId: picked }),
+        });
+      }),
+  );
+
   // Page intelligence
   registerHandler(IPC.PageSnapshot, TabActionInput, async ({ id }) => {
     const view = tabs.getViewFor(id);
@@ -243,5 +311,54 @@ export function registerIpc(
     IPC.ArtifactList,
     z.object({ missionId: z.string().optional() }),
     ({ missionId }) => ArtifactRepo.list(missionId),
+  );
+
+  // Address-bar history
+  registerHandler(
+    IPC.HistorySearch,
+    z.object({
+      query: z.string().max(500),
+      limit: z.number().int().positive().max(25).optional(),
+    }),
+    ({ query, limit }) => HistoryRepo.search(query, limit ?? 6),
+  );
+  registerHandler(IPC.HistoryClear, null, async () => {
+    await HistoryRepo.clear();
+    return { ok: true as const };
+  });
+
+  // Web search suggestions (respects searchEngine preference; Kagi falls
+  // back to Google since it has no public suggest endpoint).
+  registerHandler(
+    IPC.SuggestWeb,
+    z.object({ query: z.string().max(500) }),
+    async ({ query }) => {
+      const engine = PreferencesRepo.get().searchEngine;
+      const results = await fetchWebSuggestions(query, engine);
+      return results.map((q) => ({ query: q }));
+    },
+  );
+
+  // Site permissions
+  registerHandler(
+    IPC.PermissionRespond,
+    z.object({
+      promptId: z.string(),
+      decision: z.enum(['allow', 'block']),
+      remember: z.boolean(),
+    }),
+    async ({ promptId, decision, remember }) => {
+      await permissions.respond(promptId, decision, remember);
+      return { ok: true as const };
+    },
+  );
+  registerHandler(IPC.PermissionList, null, () => SitePermissionsRepo.list());
+  registerHandler(
+    IPC.PermissionForget,
+    z.object({ id: z.string() }),
+    async ({ id }) => {
+      await SitePermissionsRepo.remove(id);
+      return { ok: true as const };
+    },
   );
 }

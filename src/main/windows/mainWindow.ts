@@ -2,7 +2,7 @@ import { BrowserWindow, Menu, clipboard, nativeTheme, shell } from 'electron';
 import path from 'node:path';
 
 export function createMainWindow(): BrowserWindow {
-  nativeTheme.themeSource = 'dark';
+  nativeTheme.themeSource = 'light';
   const win = new BrowserWindow({
     width: 1440,
     height: 900,
@@ -10,7 +10,9 @@ export function createMainWindow(): BrowserWindow {
     minHeight: 720,
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'hidden',
     trafficLightPosition: { x: 14, y: 10 },
-    backgroundColor: '#0A0B0D',
+    // Matches --bg in the renderer so boot paint doesn't flash a dark
+    // frame before React hydrates.
+    backgroundColor: '#f1f1f1',
     show: false,
     webPreferences: {
       contextIsolation: true,

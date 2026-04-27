@@ -5,8 +5,10 @@ import { NewTabHome } from '../home/NewTabHome';
 import { WorkspaceDashboard } from '../dashboard/WorkspaceDashboard';
 import { MissionDashboard } from '../dashboard/MissionDashboard';
 import { ArtifactDetail } from '../dashboard/ArtifactDetail';
-import { StartPage } from '../dashboard/StartPage';
+import { Landing } from '../landing/Landing';
 import { AutofillPrompt } from '../passwords/AutofillPrompt';
+import { PermissionPrompt } from '../permissions/PermissionPrompt';
+import { cn } from '../../lib/cn';
 
 // These are duplicated from AppShell intentionally — keeping the viewport
 // self-contained rather than threading constants through props.
@@ -38,19 +40,21 @@ export function BrowserViewport() {
     (s) => s.ui.passwordFillPickerOpen,
   );
   const autofillOfferOpen = useForgeStore((s) => s.ui.autofillOffer !== null);
+  const chromeFreeze = useForgeStore((s) => s.ui.chromeFreeze);
   const leftOpen = useForgeStore((s) => s.ui.leftRailOpen);
   const rightOpen = useForgeStore((s) => s.ui.rightRailOpen);
 
-  const isStart = view === 'start';
+  const isLanding = view === 'landing';
   const isDashboard = view === 'dashboard';
   const isArtifact = view === 'artifact';
-  const isChrome = isStart || isDashboard || isArtifact;
+  const isChrome = isLanding || isDashboard || isArtifact;
   const isHome = !isChrome && (!active || active.url === 'forge://home');
   const dialogOpen =
     settingsOpen ||
     searchOpen ||
     passwordSavePromptOpen ||
-    passwordFillPickerOpen;
+    passwordFillPickerOpen ||
+    !!chromeFreeze?.dataUrl;
   const shouldShowView = !isChrome && !isHome && !dialogOpen;
 
   // Track + report the live rect for the webview to sit behind.
@@ -92,7 +96,14 @@ export function BrowserViewport() {
   }, [shouldShowView]);
 
   return (
-    <div className="relative w-full h-full bg-bg">
+    <div
+      className={cn(
+        'relative w-full h-full',
+        // Landing renders a full-bleed backdrop from AppShell; keep this
+        // container transparent so the bg shows through.
+        isLanding ? 'bg-transparent' : 'bg-bg',
+      )}
+    >
       <div
         ref={ref}
         className="absolute top-0"
@@ -101,25 +112,59 @@ export function BrowserViewport() {
           right: rightOpen ? RIGHT_RAIL_W : 0,
           bottom: autofillOfferOpen ? AUTOFILL_STRIP_H : 0,
         }}
-      />
+      >
+        {chromeFreeze?.dataUrl && (
+          <img
+            src={chromeFreeze.dataUrl}
+            alt=""
+            className="absolute inset-0 w-full h-full object-cover object-top pointer-events-none select-none"
+          />
+        )}
+        {/* Page-load progress strip — only on live tabs, never on chrome
+            views or the home page. Indeterminate sliding bar in accent. */}
+        {shouldShowView && active?.loading && (
+          <div
+            className="absolute top-0 left-0 right-0 h-[2px] overflow-hidden pointer-events-none z-40"
+            aria-hidden="true"
+          >
+            <div className="h-full w-[30%] bg-accent animate-progress-strip shadow-[0_0_8px_var(--accent-glow)]" />
+          </div>
+        )}
+      </div>
       {autofillOfferOpen && <AutofillPrompt />}
-      {isStart && (
-        <div className="absolute inset-0 overflow-auto scroll-area">
-          <StartPage />
+      <PermissionPrompt />
+      {isLanding && (
+        <div
+          key="view-landing"
+          // No animate-view-in here: the view-in keyframe uses `transform`,
+          // which creates a stacking context and breaks the glass panel's
+          // backdrop-filter. Landing's own panel-in + float handle entry.
+          className="absolute inset-0 overflow-auto scroll-area"
+        >
+          <Landing />
         </div>
       )}
       {isDashboard && (
-        <div className="absolute inset-0 overflow-auto scroll-area">
+        <div
+          key={selectedMissionId ? `view-mission-${selectedMissionId}` : 'view-workspace'}
+          className="absolute inset-0 overflow-auto scroll-area animate-view-in"
+        >
           {selectedMissionId ? <MissionDashboard /> : <WorkspaceDashboard />}
         </div>
       )}
       {isArtifact && (
-        <div className="absolute inset-0 overflow-auto scroll-area">
+        <div
+          key="view-artifact"
+          className="absolute inset-0 overflow-auto scroll-area animate-view-in"
+        >
           <ArtifactDetail />
         </div>
       )}
       {isHome && (
-        <div className="absolute inset-0 overflow-auto scroll-area">
+        <div
+          key="view-home"
+          className="absolute inset-0 overflow-auto scroll-area animate-view-in"
+        >
           <NewTabHome />
         </div>
       )}

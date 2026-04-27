@@ -76,14 +76,23 @@ export async function switchMission(missionId: string | null): Promise<void> {
   store.setView('dashboard');
 }
 
-/** Create a new URL tab in the current mission + activate it in tab view. */
+/** Create a new URL tab in the current scope + activate it in tab view.
+ *  Scope can be a mission (normal) or workspace-only (Free Roam mode,
+ *  missionId=null). If the user is on Landing with no workspace, this
+ *  drops them straight into Free Roam — picks (or creates) a default
+ *  workspace and opens a tab in it. Anywhere else with no workspace
+ *  selected bounces back to Landing. */
 export async function newTabInScope(
   opts: { private?: boolean } = {},
 ): Promise<void> {
   const store = useForgeStore.getState();
-  if (!store.selectedMissionId) {
-    // No mission selected — nudge the user into picking or creating one.
-    store.toast('warning', 'pick or create a mission to start browsing.');
+  if (!store.selectedWorkspaceId) {
+    if (store.ui.view === 'landing') {
+      await enterFreeRoam(opts);
+      return;
+    }
+    // No workspace + not on landing — send them to Landing to pick a mode.
+    store.setView('landing');
     return;
   }
   await ipc().tabs.create({
@@ -95,8 +104,79 @@ export async function newTabInScope(
   store.setView('tab');
 }
 
+/**
+ * Drop the user into Free Roam: pick the first workspace (or create a
+ * default "Personal" one), clear any mission selection, and open a new
+ * tab. Used by Landing's Free Roam card and the ⌘T shortcut from
+ * Landing.
+ */
+export async function enterFreeRoam(
+  opts: { private?: boolean } = {},
+): Promise<void> {
+  const store = useForgeStore.getState();
+  let workspaceId = store.workspaces[0]?.id ?? null;
+  if (!workspaceId) {
+    const ws = await ipc().workspaces.create({
+      name: 'Personal',
+      icon: 'forge',
+      color: '#a4cb09',
+    });
+    workspaceId = ws.id;
+  }
+  store.selectWorkspace(workspaceId);
+  store.selectMission(null);
+  await ipc().tabs.create({
+    url: 'forge://home',
+    workspaceId,
+    missionId: null,
+    private: !!opts.private,
+  });
+  store.setView('tab');
+}
+
 /** Activate an existing URL tab and flip the view back to 'tab'. */
 export async function activateTab(id: string): Promise<void> {
   await ipc().tabs.activate(id);
   useForgeStore.getState().setView('tab');
+}
+
+/**
+ * Close a tab and — if we just closed the active one — activate the next
+ * tab in the same scope (by index). Falls back to the dashboard if no
+ * tabs remain in scope. Mirrors what Chrome/Arc do: closing a tab keeps
+ * you in a tab, not back on the new-tab screen.
+ */
+export async function closeTabAndAdvance(id: string): Promise<void> {
+  const store = useForgeStore.getState();
+  const tab = store.tabs.find((t) => t.id === id);
+  const wasActive = tab?.active ?? false;
+
+  const scope = currentScope();
+  const scopedBefore = filterTabsForScope(store.tabs, scope);
+  const closingIdx = scopedBefore.findIndex((t) => t.id === id);
+
+  // Optimistic local remove so the scope math below uses fresh state.
+  store.setTabs(store.tabs.filter((t) => t.id !== id));
+  await ipc().tabs.close(id);
+
+  if (!wasActive) return;
+
+  const remaining = scopedBefore.filter((t) => t.id !== id);
+  if (remaining.length === 0) {
+    // No tabs left in scope. Mission-scoped browsing goes back to the
+    // mission dashboard; Free Roam (no mission) has no natural dashboard,
+    // so bounce to Landing instead of falling through to the workspace
+    // dashboard for a workspace the user never explicitly opened.
+    if (scope.missionId) {
+      store.setView('dashboard');
+    } else {
+      store.selectWorkspace(null);
+      store.setView('landing');
+    }
+    return;
+  }
+  // Prefer the tab at the same index (slides left), else the last.
+  const nextIdx = Math.min(closingIdx, remaining.length - 1);
+  await ipc().tabs.activate(remaining[nextIdx].id);
+  store.setView('tab');
 }

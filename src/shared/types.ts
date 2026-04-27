@@ -24,7 +24,7 @@ export interface UserPreferences {
   /** Session state — restored on relaunch so crashes don't lose context. */
   lastSelectedWorkspaceId: string | null;
   lastSelectedMissionId: string | null;
-  lastView: 'start' | 'dashboard' | 'tab' | 'artifact' | null;
+  lastView: 'landing' | 'dashboard' | 'tab' | 'artifact' | null;
   createdAt: ISODateString;
   updatedAt: ISODateString;
 }
@@ -74,11 +74,14 @@ export const MODEL_OPTIONS_FOR: Record<AIProvider, ReadonlyArray<ModelOption>> =
   ],
 };
 
+export type WorkspaceStatus = 'active' | 'paused' | 'archived';
+
 export interface Workspace {
   id: string;
   name: string;
   icon: string; // lucide icon name
   color: string; // tailwind/hex token
+  status: WorkspaceStatus;
   createdAt: ISODateString;
   updatedAt: ISODateString;
 }
@@ -93,6 +96,64 @@ export interface Mission {
   status: MissionStatus;
   createdAt: ISODateString;
   updatedAt: ISODateString;
+}
+
+/**
+ * Site permissions — a page requested access to something (location,
+ * camera, mic, notifications, etc.). We prompt the user once per
+ * origin+permission and remember the decision. Kinds map 1:1 to Chromium
+ * permission strings we route through the request handler.
+ */
+export type PermissionKind =
+  | 'geolocation'
+  | 'camera'
+  | 'microphone'
+  | 'notifications'
+  | 'clipboard-read'
+  | 'pointerLock'
+  | 'midi';
+
+export type PermissionDecision = 'allow' | 'block';
+
+/** One saved permission decision for an origin. */
+export interface SitePermission {
+  id: string;
+  /** Normalized origin, e.g. "https://maps.google.com". */
+  origin: string;
+  kind: PermissionKind;
+  decision: PermissionDecision;
+  createdAt: ISODateString;
+  updatedAt: ISODateString;
+}
+
+/**
+ * An active permission prompt shown to the user. Only one at a time —
+ * the handler resolves once the user picks or the tab navigates away.
+ */
+export interface PermissionPromptState {
+  id: string;
+  tabId: string;
+  origin: string;
+  host: string;
+  kind: PermissionKind;
+}
+
+/**
+ * A single visited URL. We dedupe by normalized URL and increment
+ * `visitCount` on repeats. Private tabs never write here.
+ */
+export interface HistoryEntry {
+  id: string;
+  url: string;
+  title: string;
+  visitCount: number;
+  lastVisitedAt: ISODateString;
+  createdAt: ISODateString;
+}
+
+/** A search suggestion returned by the web suggest endpoint. */
+export interface WebSuggestion {
+  query: string;
 }
 
 export interface BrowserTab {
